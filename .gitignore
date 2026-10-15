@@ -1,0 +1,9 @@
+node_modules/
+dist/
+bridge/dist/
+.DS_Store
+*.log
+preview/dist/
+preview/.work/
+.test-dist/
+preview/shots/

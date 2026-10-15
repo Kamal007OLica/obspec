@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Obspec — local preview</title>
+<link rel="stylesheet" href="/harness.css" />
+</head>
+<body>
+<header class="bar">
+  <div class="bar-l"><span class="mark"></span><strong>Obspec</strong><span class="muted">local preview · real plugin UI + real bridge · mock Figma document</span></div>
+  <div class="bar-r">
+    <span id="bridge-status" class="status">bridge…</span>
+    <button id="theme" class="tb">Dark theme</button>
+    <button id="reset" class="tb">Reset vault &amp; canvas</button>
+  </div>
+</header>
+<main class="grid">
+  <section class="canvas">
+    <div class="pages" id="pages"></div>
+    <div class="stage" id="stage"></div>
+    <div class="canvas-hint">Click a layer to select it, as you would in Figma. Spec cards appear here when inserted.</div>
+  </section>
+  <section class="plugin">
+    <div class="plugin-window">
+      <div class="plugin-title"><span class="dots"><i></i><i></i><i></i></span><span>Obspec</span><span class="muted" id="win-size">380 × 560</span></div>
+      <iframe id="plugin" src="/ui.html" title="Obspec plugin UI" width="380" height="560"></iframe>
+    </div>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h3>Use cases</h3>
+      <p class="muted">Each button drives the real plugin UI exactly like a user would. Watch the canvas, the plugin and the note.</p>
+      <div class="scenarios" id="scenarios"></div>
+    </div>
+    <div class="panel obsidian">
+      <h3>Obsidian <span class="muted" id="ob-path"></span></h3>
+      <pre id="ob-raw" class="raw">Select or link a note to see it here. Updates live.</pre>
+      <div class="row"><button class="tb" id="ob-edit">Simulate editing this note in Obsidian</button></div>
+    </div>
+    <div class="panel log"><h3>Log</h3><ol id="log"></ol></div>
+  </aside>
+</main>
+<script src="/harness.js"></script>
+</body>
+</html>

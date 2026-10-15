@@ -1,0 +1,24 @@
+{
+  "name": "obspec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Obspec — the Obsidian ↔ Figma bridge. Search your vault from Figma, drop notes onto the canvas as spec cards, and keep design and notes in sync.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "bridge": "node bridge/dist/cli.js",
+    "bridge:example": "node bridge/dist/cli.js --vault examples/vault --port 27123",
+    "preview": "node scripts/build.mjs && node preview/serve.mjs",
+    "test": "node scripts/test.mjs",
+    "emulate": "node scripts/emulate.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p bridge/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": { "node": ">=18" }
+}
