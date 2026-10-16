@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Obspec</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Obspec is a Figma plugin that searches your Obsidian vault from inside Figma and keeps notes and Figma Specs in two-way sync. Local only.">
+<meta property="og:title" content="Obspec. Search your Obsidian vault inside Figma.">
+<meta property="og:description" content="Two-way sync between Obsidian notes and Figma Specs. Nothing leaves your machine.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0b0b0e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0e'/%3E%3Cpath d='M32 6l17 12-4 30-13 10-15-7-7-30z' fill='%23232330'/%3E%3Cg transform='translate(22.5 18) scale(.5)'%3E%3Cpath d='M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z' fill='%231ABCFE'/%3E%3Cpath d='M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z' fill='%230ACF83'/%3E%3Cpath d='M19 0v19h9.5a9.5 9.5 0 1 0 0-19z' fill='%23FF7262'/%3E%3Cpath d='M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z' fill='%23F24E1E'/%3E%3Cpath d='M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z' fill='%23A259FF'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+/* Layout: one fixed stage for the whole page. A macOS window holds two equal screens (Obsidian left, Figma
+   right); scrolling scrubs six key states of the plugin's flow, then a seventh state parallaxes the window
+   away and brings the obsidian stone and the closing copy forward. Both screens are themselves mac windows
+   (same frosted bezel). Obsidian-glass palette, OffBit display, Apple system font. Single dark theme by choice. */
+@font-face{font-family:"OffBit";font-weight:400;font-style:normal;src:url("assets/fonts/OffBitTrial-Regular.woff") format("woff");font-display:swap}
+@font-face{font-family:"OffBit";font-weight:700;font-style:normal;src:url("assets/fonts/OffBitTrial-Bold.woff") format("woff");font-display:swap}
+@font-face{font-family:"OffBit Dot";font-weight:700;font-style:normal;src:url("assets/fonts/OffBitTrial-DotBold.woff") format("woff");font-display:swap}
+:root{
+  color-scheme:dark;
+  --bg:#0b0b0e;--bg-2:#121216;--bg-3:#1a1a20;--line:rgba(242,241,238,.1);--line-2:rgba(242,241,238,.18);
+  --text:#f2f1ee;--dim:rgba(242,241,238,.62);--mute:rgba(242,241,238,.4);
+  --purple:#8f6bff;--purple-2:#b79bff;--purple-soft:rgba(143,107,255,.16);
+  --ink:#161619;--ink-line:rgba(255,255,255,.08);--ink-text:#e8e6e1;--ink-dim:#8d8b86;--ink-acc:#b79bff;
+  --canvas:#ffffff;--canvas-dot:#d9d9d9;--fig-blue:#0d99ff;--fig-text:#1e1e1e;--fig-dim:#7a7a7a;--fig-line:#e6e6e6;--fig-acc:#6b4eff;
+  --display:"OffBit","SF Mono",Menlo,monospace;--dot:"OffBit Dot","OffBit","SF Mono",Menlo,monospace;
+  --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+  --ease:cubic-bezier(.22,.8,.2,1);
+  --gutter:max(36px,env(safe-area-inset-left,0px));--gutter-r:max(36px,env(safe-area-inset-right,0px));
+  --top-h:68px;--cap-h:160px;--cue-h:84px;--dock-h:48px;--ban-h:52px;
+}
+html.no-ban{--ban-h:0px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sys);font-size:15px;line-height:1.45;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+html.has-cursor,html.has-cursor a,html.has-cursor button{cursor:none}
+::selection{background:var(--purple);color:var(--bg)}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--purple-2);outline-offset:3px}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 50% 0%,rgba(143,107,255,.16),transparent 70%)}
+
+/* ---------- display type ---------- */
+.d{font-family:var(--display);font-weight:700;line-height:.95}
+.d .sq{display:inline-block;width:.4em;height:.4em;background:var(--purple);vertical-align:baseline;margin-left:.12em;transform:translateY(.02em)}
+
+/* ---------- announcement banner: Figma Specs introduction ---------- */
+.ban{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;height:var(--ban-h);z-index:56;display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:0 calc(var(--gutter-r) + 38px) 0 var(--gutter);background:linear-gradient(90deg,#f2f1ee 0%,#e4dcff 42%,#f6f3ff 60%,#f2f1ee 100%);border-bottom:1px solid rgba(143,107,255,.4);font-size:14px;font-weight:600;color:#15112a;white-space:nowrap;overflow:hidden;
+  transition:transform .55s var(--ease),opacity .4s var(--ease),visibility .55s}
+.ban .timer{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--purple);transform-origin:left;animation:drain 15s linear forwards}
+@keyframes drain{to{transform:scaleX(0)}}
+.top,.caps{transition:top .55s var(--ease)}
+.stage,.outro{transition:padding .55s var(--ease)}
+.ban::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.9) 50%,transparent 65%);transform:translateX(-100%);animation:sheen 7s var(--ease) infinite}
+@keyframes sheen{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.ban .new{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.08em;padding:5px 10px 4px;border-radius:999px;background:var(--purple);color:#fff;flex:none;line-height:1}
+.ban .fmk{width:14px;height:21px;flex:none}
+.ban .msg{color:#4a4664;overflow:hidden;text-overflow:ellipsis;min-width:0;position:relative}
+.ban .msg b{color:#15112a;font-weight:700}
+.ban .new,.ban .cta,.ban .x,.ban .fmk{position:relative}
+.ban .cta{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 16px;border-radius:999px;background:#15112a;color:#f2f1ee;text-decoration:none;font-weight:700;font-size:13px;flex:none;transition:background .3s var(--ease),color .3s var(--ease),box-shadow .3s var(--ease)}
+.ban .cta:hover{background:var(--purple);color:#fff;box-shadow:0 0 0 4px rgba(143,107,255,.25)}
+.ban .x{position:absolute!important;right:calc(var(--gutter-r) - 6px);top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:transparent;color:#5a5670;display:grid;place-items:center;cursor:pointer;padding:0}
+.ban .x svg{width:14px;height:14px}
+.ban .x:hover{background:rgba(21,17,42,.08);color:#15112a}
+html.no-ban .ban{transform:translateY(-100%);opacity:0;visibility:hidden;pointer-events:none}
+html.no-ban .ban .timer{animation:none}
+
+/* ---------- sticky top bar ---------- */
+.top{position:fixed;top:calc(var(--ban-h) + env(safe-area-inset-top,0px));left:0;right:0;height:var(--top-h);z-index:50;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:0 var(--gutter-r) 0 var(--gutter);background:linear-gradient(var(--bg) 55%,rgba(11,11,14,0))}
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none}
+.brand canvas{width:50px;height:50px;display:block}
+.brand .word{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;color:var(--text);transform:translateY(2px)}
+.brand .sub{display:block;margin-top:5px;font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.brand .sub i{font-style:normal;color:var(--purple-2);padding:0 3px}
+.top-right{display:flex;align-items:center;gap:10px}
+.award{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;height:52px;padding:0 18px;border-radius:999px;color:var(--purple-2);text-decoration:none;white-space:nowrap;
+  border:1px solid transparent;background:linear-gradient(180deg,rgba(28,26,36,.96),rgba(14,13,19,.96)) padding-box,linear-gradient(180deg,rgba(233,226,255,.55),rgba(143,107,255,.18) 55%,rgba(143,107,255,.06)) border-box;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 40px -22px rgba(0,0,0,.9),0 0 0 1px rgba(0,0,0,.4)}
+.award .laurel{width:26px;height:44px;display:block;flex:none}
+.award .laurel.flip{transform:scaleX(-1)}
+.award .aw{display:grid;justify-items:center;gap:2px;line-height:1;padding:0 2px}
+.award .stars{display:flex;align-items:center;gap:2px}
+.award .stars svg{width:9px;height:9px;fill:var(--purple-2)}
+.award .stars svg:nth-child(3){width:11px;height:11px}
+.award b{font-family:var(--display);font-weight:700;font-size:16px;color:var(--text);letter-spacing:.02em}
+.award small{display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.award small::before,.award small::after{content:"";width:16px;height:1px;background:linear-gradient(90deg,transparent,rgba(183,155,255,.55))}
+.award small::after{transform:scaleX(-1)}
+.pill{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);text-decoration:none;color:var(--dim);font-size:13px;font-weight:600;
+  transition:background .3s var(--ease),color .3s var(--ease),border-color .3s var(--ease)}
+.pill:hover{background:var(--bg-3);color:var(--text);border-color:var(--purple)}
+.pill .n{width:7px;height:7px;border-radius:50%;background:var(--purple-2);box-shadow:0 0 0 3px var(--purple-soft)}
+
+/* ---------- buttons: a state change, not a motion. The purple fill pours in from where the pointer entered
+   (clip-path circle, so nothing moves), the label stays put, and a detached ring appears around the pill. ---------- */
+.btn{--x:50%;--y:50%;position:relative;display:inline-flex;align-items:center;gap:10px;height:42px;padding:0 18px;border-radius:999px;border:1px solid transparent;text-decoration:none;font-size:14px;font-weight:700;color:var(--bg);background:var(--text);white-space:nowrap;isolation:isolate;
+  transition:color .35s var(--ease),border-color .35s var(--ease),box-shadow .45s var(--ease);box-shadow:0 10px 30px -12px rgba(0,0,0,.8),0 0 0 0 var(--bg),0 0 0 0 rgba(143,107,255,0)}
+.btn::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--purple);clip-path:circle(0% at var(--x) var(--y));transition:clip-path .6s var(--ease);z-index:-1}
+.btn.is-hover::before{clip-path:circle(160% at var(--x) var(--y))}
+.btn.is-hover{color:#fff;box-shadow:0 18px 40px -14px rgba(143,107,255,.6),0 0 0 3px var(--bg),0 0 0 5px var(--purple)}
+.btn svg{width:18px;height:18px;flex:none}
+.btn .t{display:inline-block;line-height:1.2em}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--line-2);box-shadow:0 0 0 0 var(--bg),0 0 0 0 rgba(242,241,238,0)}
+.btn-ghost::before{background:var(--text)}
+.btn-ghost.is-hover{color:var(--bg);border-color:transparent;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--text)}
+.btn-lg{height:56px;padding:0 26px;font-size:16px}
+.btn .fm{width:13px;height:19px;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+
+/* ---------- message band ---------- */
+.caps{position:fixed;left:0;right:0;top:calc(var(--ban-h) + var(--top-h) + env(safe-area-inset-top,0px));height:var(--cap-h);z-index:5;pointer-events:none;
+  padding:6px var(--gutter-r) 0 var(--gutter);display:grid;grid-template-columns:1fr auto;align-items:start;gap:24px}
+.cap{grid-column:1;grid-row:1;max-width:860px;opacity:0;transform:translateY(10px);transition:opacity .45s var(--ease),transform .55s var(--ease);visibility:hidden}
+.cap.on{opacity:1;transform:none;visibility:visible;transition-delay:.05s}
+.cap h2{margin:0 0 10px;font-size:clamp(30px,3.6vw,52px);color:var(--text);text-wrap:balance}
+.cap p{margin:0;font-size:clamp(14px,1.1vw,16px);color:var(--dim);max-width:60ch}
+.counter{grid-column:2;grid-row:1;font-family:var(--display);font-weight:700;font-size:22px;color:var(--text);display:flex;align-items:center;gap:12px;pointer-events:auto;margin-top:8px}
+.counter .bar{width:120px;height:4px;background:var(--line);position:relative;border-radius:2px;overflow:hidden}
+.counter .bar i{position:absolute;left:0;top:0;bottom:0;width:100%;background:var(--purple);transform:scaleX(0);transform-origin:left}
+.counter small{font-family:var(--sys);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+
+/* ---------- stage + mac window ---------- */
+.stage{position:fixed;inset:0;z-index:1;padding:calc(var(--ban-h) + var(--top-h) + var(--cap-h) + env(safe-area-inset-top,0px)) var(--gutter-r) calc(var(--cue-h) + var(--dock-h) + env(safe-area-inset-bottom,0px)) var(--gutter)}
+.mac{position:relative;width:100%;height:100%;border-radius:26px;border:7px solid rgba(242,241,238,.17);background:rgba(18,18,22,.55);backdrop-filter:blur(28px) saturate(1.3);-webkit-backdrop-filter:blur(28px) saturate(1.3);
+  box-shadow:0 50px 120px -50px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.12),inset 0 0 0 1px rgba(255,255,255,.1),inset 0 1px 0 rgba(255,255,255,.08);display:grid;grid-template-rows:42px 1fr;overflow:hidden;will-change:transform,opacity;transform-origin:50% 60%}
+.mac .bar{display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--dim)}
+.mac .bar i{width:12px;height:12px;border-radius:50%;display:block}
+.mac .bar i:nth-child(1){background:#ff5f57}.mac .bar i:nth-child(2){background:#febc2e}.mac .bar i:nth-child(3){background:#28c840}
+.mac .bar .t{margin:0 auto;display:flex;align-items:center;gap:8px;color:var(--text)}
+.mac .bar .t em{font-style:normal;color:var(--mute);font-weight:500}
+.mac .bar .tag{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--purple-soft);color:var(--purple-2)}
+.mac .body{display:grid;grid-template-columns:1fr 44px 1fr;padding:14px;min-height:0}
+.cell{position:relative;min-width:0;min-height:0}
+.fit{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.win{position:relative;width:880px;height:720px;display:grid;grid-template-rows:34px 1fr;border-radius:18px;border:3px solid rgba(242,241,238,.17);background:rgba(18,18,22,.6);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden;
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.08),inset 0 1px 0 rgba(255,255,255,.08)}
+.win .pbar{display:flex;align-items:center;gap:7px;padding:0 12px;font-size:11.5px;font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);background:rgba(18,18,22,.75)}
+.win .pbar i{width:10px;height:10px;border-radius:50%;display:block;opacity:.15}
+.win .pbar i:nth-child(1){background:#ff5f57}.win .pbar i:nth-child(2){background:#febc2e}.win .pbar i:nth-child(3){background:#28c840}
+.win .pbar .t{margin:0 auto;color:var(--text);display:flex;align-items:center;gap:7px}
+.win .pbar .t em{font-style:normal;color:var(--mute);font-weight:500}
+.win .pbar .t svg{width:10px;height:15px}
+.link{position:relative;z-index:3;pointer-events:none}
+.link .line{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line);transform:translateX(-.5px)}
+.link .badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:var(--bg-2);border:1px solid var(--line-2);display:grid;place-items:center;color:var(--dim);transition:border-color .3s,color .3s,background .3s,transform .4s var(--ease)}
+.link .badge svg{width:18px;height:18px}
+.link .badge.on{border-color:var(--purple);color:var(--purple-2);background:var(--purple-soft);transform:translate(-50%,-50%) scale(1.12)}
+.link .lbl{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);white-space:nowrap;opacity:0;transition:opacity .3s}
+.link .lbl.on{opacity:1;color:var(--purple-2)}
+
+/* overlay: link thread, glow dots, search rays, flyers (all in viewport coordinates) */
+.thread{position:fixed;inset:0;z-index:4;pointer-events:none;width:100%;height:100%}
+.thread path{fill:none;stroke:var(--purple-2);stroke-width:1.5;stroke-linecap:round;opacity:0}
+.thread .halo{stroke:var(--purple);stroke-width:6;opacity:0;filter:blur(4px)}
+.thread circle{fill:#fff;opacity:0;filter:drop-shadow(0 0 8px rgba(183,155,255,.95))}
+.thread .ray{stroke:var(--purple-2);stroke-width:1;stroke-dasharray:4 6;opacity:0}
+.fly{position:fixed;left:0;top:0;z-index:4;pointer-events:none;opacity:0;transform-origin:0 0;will-change:transform}
+.fly.card{width:260px;border-radius:10px;background:#fff;color:#111;padding:12px 14px;box-shadow:0 20px 50px -20px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.06)}
+.fly.card b{display:block;font-size:14px;margin-bottom:4px}
+.fly.card p{margin:0;font-size:12px;color:#55534f;line-height:1.35}
+.fly.card .tags{margin-top:8px;display:flex;gap:6px}
+.fly.card .tags i{font-style:normal;font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(107,78,255,.12);color:var(--fig-acc)}
+.fly.line{font-family:"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-text);background:var(--purple-soft);border:1px solid var(--purple);padding:4px 8px;border-radius:6px;white-space:nowrap;backdrop-filter:blur(6px)}
+.fly.chip{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#111;border-radius:10px;padding:8px 10px;box-shadow:0 20px 50px -20px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.06);font-size:11px;white-space:nowrap}
+.fly.chip .b{height:28px;padding:0 12px;border-radius:7px;background:var(--fig-acc);color:#fff;font-weight:600;display:inline-flex;align-items:center;font-size:12px}
+.fly.chip .m{display:grid;gap:2px;color:#55534f;font-family:"SF Mono",Menlo,monospace}
+.fly.chip .m b{color:#111}
+
+/* ---------- scroll cue ---------- */
+.cue{position:fixed;left:0;right:0;bottom:calc(var(--dock-h) + env(safe-area-inset-bottom,0px));height:var(--cue-h);z-index:6;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .4s var(--ease),visibility .4s}
+.cue.off{opacity:0;visibility:hidden}
+.cuebtn{pointer-events:auto;position:relative;display:inline-flex;align-items:center;gap:12px;height:50px;padding:0 18px 0 14px;border-radius:999px;border:1px solid rgba(242,241,238,.22);background:rgba(18,18,22,.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  color:var(--text);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 20px 50px -20px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.04);transition:border-color .3s var(--ease),background .3s var(--ease),height .3s var(--ease)}
+.cuebtn::before{content:"";position:absolute;inset:-1px;border-radius:inherit;border:1.5px solid var(--purple-2);opacity:0;animation:ring 2.4s var(--ease) infinite;pointer-events:none}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.25,1.7)}}
+.cuebtn:hover,.cuebtn:focus-visible{border-color:var(--purple);background:rgba(143,107,255,.22)}
+.cuebtn .mouse{width:20px;height:32px;border-radius:11px;border:1.5px solid var(--text);position:relative;flex:none}
+.cuebtn .mouse::after{content:"";position:absolute;left:50%;top:6px;width:3px;height:7px;margin-left:-1.5px;border-radius:2px;background:var(--purple-2);animation:wheel 1.5s var(--ease) infinite}
+@keyframes wheel{0%{transform:translateY(0);opacity:1}70%{transform:translateY(12px);opacity:0}100%{transform:translateY(0);opacity:0}}
+.cuebtn .lbl{display:grid;gap:2px;line-height:1.1;text-align:left}
+.cuebtn .lbl small{font-weight:600;font-size:10.5px;color:var(--purple-2);letter-spacing:.08em;text-transform:uppercase}
+.cuebtn .chev{display:grid;gap:1px;width:16px;flex:none;margin-left:2px}
+.cuebtn .chev svg{width:16px;height:9px;display:block;animation:chev 1.5s var(--ease) infinite}
+.cuebtn .chev svg:nth-child(2){animation-delay:.14s}.cuebtn .chev svg:nth-child(3){animation-delay:.28s}
+@keyframes chev{0%,100%{opacity:.22;transform:translateY(-2px)}50%{opacity:1;transform:translateY(2px)}}
+.cue.nudge .cuebtn{animation:nudge 1.1s var(--ease) 3}
+@keyframes nudge{50%{transform:scale(1.07)}}
+.cuebtn .l1{display:none}
+html.scrolled .cuebtn{height:42px;font-size:12.5px;padding:0 16px 0 12px}
+html.scrolled .cuebtn::before{animation:none;opacity:0}
+html.scrolled .cuebtn .mouse{display:none}
+html.scrolled .cuebtn .l0{display:none}html.scrolled .cuebtn .l1{display:grid}
+
+/* ---------- Obsidian panel ---------- */
+.obs{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--ink);color:var(--ink-text);display:grid;grid-template-columns:44px 236px 1fr;font-size:12.5px}
+.obs .rail{background:#111114;border-right:1px solid var(--ink-line);display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:14px}
+.obs .rail i{width:18px;height:18px;border-radius:5px;background:rgba(255,255,255,.08)}
+.obs .rail i.on{background:var(--purple)}
+.obs .tree{border-right:1px solid var(--ink-line);padding:12px 8px;overflow:hidden}
+.obs .tree h6{margin:0 0 8px 6px;font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em}
+.obs .tree div{display:flex;justify-content:space-between;padding:5px 8px;border-radius:6px;color:var(--ink-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.obs .tree div span{color:var(--ink-dim);font-size:11px}
+.obs .tree div.sub{padding-left:22px}
+.obs .tree div.on{background:var(--purple-soft);color:var(--ink-acc)}
+.obs .main{display:flex;flex-direction:column;min-width:0}
+.obs .bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--ink-line);color:var(--ink-dim);font-size:11.5px}
+.obs .bar b{color:var(--ink-text);font-weight:600}
+.obs .search{margin:10px 12px 6px;height:30px;border-radius:8px;background:#232327;border:1px solid var(--ink-line);display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--ink-dim)}
+.obs .list{flex:1;overflow:hidden;padding:4px 8px 0}
+.obs .list h6{margin:8px 4px 4px;font-size:11px;font-weight:600;color:var(--ink-dim)}
+.obs .note{padding:8px 8px;border-radius:8px;border:1.5px solid transparent;transition:border-color .4s var(--ease),background .4s var(--ease),opacity .4s var(--ease),box-shadow .4s}
+.obs .note b{display:block;font-weight:600;font-size:12.5px}
+.obs .note p{margin:2px 0 0;color:var(--ink-dim);font-size:11.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.obs .note .t{margin-top:5px;display:flex;gap:5px}
+.obs .note .t i{font-style:normal;font-size:10px;padding:1px 6px;border-radius:999px;border:1px solid var(--ink-line);color:var(--ink-dim)}
+.obs .note.hit{border-color:var(--purple);background:var(--purple-soft);box-shadow:0 0 0 4px rgba(143,107,255,.12)}
+.obs .note.hit b em{font-style:normal;background:var(--purple);color:#fff;border-radius:2px;padding:0 2px}
+.obs .note.gone{opacity:.35}
+.obs .editor{position:absolute;inset:0;left:280px;background:var(--ink);padding:18px 22px;opacity:0;transition:opacity .45s var(--ease);font-family:"SF Mono",Menlo,monospace;font-size:12px;line-height:1.7;color:var(--ink-text);overflow:hidden}
+.obs.edit .editor{opacity:1}
+.obs .editor .crumb{font-family:var(--sys);color:var(--ink-dim);font-size:11px;margin-bottom:10px}
+.obs .editor h1{font-family:var(--sys);font-size:22px;margin:0 0 10px;font-weight:700}
+.obs .editor .h{color:var(--ink-acc)}
+.obs .editor .new{background:var(--purple-soft);border-radius:3px}
+.obs .editor .caret{display:inline-block;width:2px;height:1.1em;background:var(--ink-acc);vertical-align:text-bottom;animation:caret 1s steps(2) infinite}
+@keyframes caret{50%{opacity:0}}
+.obs .editor .design{opacity:0;transform:translateY(8px);transition:opacity .5s var(--ease),transform .6s var(--ease)}
+.obs .editor .design.on{opacity:1;transform:none}
+.obs .editor table{border-collapse:collapse;margin-top:4px;font-size:11.5px}
+.obs .editor td{border:1px solid var(--ink-line);padding:2px 8px;color:var(--ink-text)}
+.obs .editor td.k{color:var(--ink-dim)}
+
+/* ---------- Figma panel ---------- */
+.fig{min-width:0;min-height:0;background:var(--canvas);color:var(--fig-text);position:relative;overflow:hidden;
+  background-image:radial-gradient(var(--canvas-dot) 1.2px,transparent 1.3px);background-size:22px 22px;background-position:11px 11px}
+.fig .tb{position:absolute;left:14px;top:14px;display:flex;background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);font-size:13px;font-weight:500}
+.fig .tb span{padding:10px 14px;display:flex;align-items:center;gap:8px}
+.fig .tb span+span{border-left:1px solid var(--fig-line)}
+.fig .tb i{width:14px;height:14px;border:1.5px solid var(--fig-text);border-radius:3px}
+.fig .tools{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);display:flex;padding:6px;gap:4px}
+.fig .tools i{width:32px;height:32px;border-radius:8px;display:block;background:transparent}
+.fig .tools i.on{background:var(--fig-blue)}
+.fig .tools i:not(.on)::before{content:"";display:block;width:12px;height:12px;margin:10px;border:1.5px solid var(--fig-text);border-radius:2px;opacity:.7}
+.spec{position:absolute;left:30px;top:100px;width:400px;background:#fff;border-radius:6px;box-shadow:0 8px 30px -10px rgba(0,0,0,.25);padding:20px 22px;opacity:0;transform:translateY(10px);transition:opacity .4s var(--ease),transform .5s var(--ease)}
+.spec.on{opacity:1;transform:none}
+.spec .lab{position:absolute;left:0;top:-22px;font-size:11px;color:var(--fig-blue);font-weight:500;display:flex;align-items:center;gap:6px}
+.spec .lab::before{content:"";width:10px;height:12px;border:1.5px solid var(--fig-blue);border-radius:2px}
+.spec::before{content:"";position:absolute;inset:-1px;border:1.5px solid var(--fig-blue);border-radius:6px;opacity:0;transition:opacity .3s}
+.spec.sel::before{opacity:1}
+.spec .hd{position:absolute;width:8px;height:8px;background:#fff;border:1.5px solid var(--fig-blue);opacity:0;transition:opacity .3s}
+.spec.sel .hd{opacity:1}
+.spec .hd.tl{left:-5px;top:-5px}.spec .hd.tr{right:-5px;top:-5px}.spec .hd.bl{left:-5px;bottom:-5px}.spec .hd.br{right:-5px;bottom:-5px}
+.spec h3{margin:0 0 6px;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.spec .meta{display:flex;gap:6px;margin-bottom:12px}
+.spec .meta i{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(107,78,255,.1);color:var(--fig-acc)}
+.spec p{margin:0 0 8px;font-size:13px;line-height:1.5;color:#3a3a3a}
+.spec h4{margin:10px 0 4px;font-size:13px;font-weight:700}
+.spec ul{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:#3a3a3a}
+.spec li.new{background:rgba(107,78,255,.14);border-radius:3px;opacity:0;max-height:0;overflow:hidden;transition:opacity .4s var(--ease),max-height .5s var(--ease)}
+.spec li.new.on{opacity:1;max-height:48px}
+.spec .btnrow{margin-top:14px;display:flex;gap:8px;align-items:center}
+.spec .fbtn{height:34px;padding:0 16px;border-radius:8px;background:var(--fig-acc);color:#fff;font-size:13px;font-weight:600;display:inline-flex;align-items:center;position:relative}
+.spec .fbtn.sel{outline:1.5px solid var(--fig-blue);outline-offset:2px}
+.spec .fbtn .dim{position:absolute;left:0;top:-18px;font-size:10px;color:var(--fig-blue);white-space:nowrap}
+.spec .sync{position:absolute;right:14px;top:14px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;background:#eef3ff;color:#1e4ed8;transition:background .3s,color .3s;opacity:0}
+.spec.on .sync{opacity:1}
+.spec .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.spec .sync.warn{background:#fff1ec;color:#d8431a}
+.spec .sync.info{background:#e8f6ff;color:#0b7fd1}
+.plug{position:absolute;right:18px;top:18px;width:300px;height:560px;background:#fff;border-radius:10px;box-shadow:0 12px 40px -10px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.08);display:flex;flex-direction:column;font-size:12.5px;overflow:hidden}
+.plug .ph{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--fig-line);font-weight:600}
+.plug .ph .pmark{width:20px;height:20px;display:block;flex:none}
+.plug .ph .ver{font-size:10px;font-weight:500;color:var(--fig-dim);background:#f3f3f3;border-radius:999px;padding:2px 6px;margin-left:-2px}
+.plug .ph .vault{margin-left:auto;font-weight:500;font-size:11px;color:#1a7f37;display:flex;align-items:center;gap:5px}
+.plug .ph .vault::before{content:"";width:6px;height:6px;border-radius:50%;background:#1a7f37}
+.plug .tabs{display:flex;gap:14px;padding:0 12px;border-bottom:1px solid var(--fig-line);font-size:12px;color:var(--fig-dim)}
+.plug .tabs span{padding:9px 0;position:relative}
+.plug .tabs span.on{color:var(--fig-text);font-weight:600}
+.plug .tabs span.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--fig-acc)}
+.plug .tabs em{font-style:normal;font-size:10px;background:#eee;border-radius:999px;padding:1px 6px;margin-left:4px}
+.plug .q{margin:10px 12px 8px;height:34px;border-radius:8px;background:#f3f3f3;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--fig-dim);position:relative}
+.plug .q b{color:var(--fig-text);font-weight:500}
+.plug .q .caret{width:1.5px;height:16px;background:var(--fig-text);animation:caret 1s steps(2) infinite;opacity:0}
+.plug.typing .q .caret{opacity:1}
+.plug .ops{display:flex;gap:6px;padding:0 12px 8px}
+.plug .ops i{font-style:normal;font-size:10.5px;padding:3px 8px;border-radius:999px;background:#f3f3f3;color:var(--fig-dim);font-family:"SF Mono",Menlo,monospace}
+.plug .empty{padding:40px 20px;text-align:center;color:var(--fig-dim);font-size:12px;line-height:1.5}
+.plug .res{padding:0 8px}
+.plug .res h6{margin:6px 4px 6px;font-size:10.5px;font-weight:600;color:var(--fig-dim);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between}
+.plug .r{padding:8px;border-radius:8px;opacity:0;transform:translateY(6px);transition:opacity .35s var(--ease),transform .4s var(--ease),background .3s,box-shadow .3s}
+.plug .r.on{opacity:1;transform:none}
+.plug .r.sel{background:#f0edff}
+.plug .r.lit{box-shadow:0 0 0 2px rgba(143,107,255,.5)}
+.plug .r b{display:flex;justify-content:space-between;font-weight:600;font-size:12.5px}
+.plug .r b span{font-weight:400;color:var(--fig-dim);font-size:11px}
+.plug .r p{margin:2px 0 0;font-size:11.5px;color:#555;line-height:1.35}
+.plug .r em{font-style:normal;background:#ffe9a8;border-radius:2px}
+.plug .r .t{margin-top:5px;display:flex;gap:5px}
+.plug .r .t i{font-style:normal;font-size:10px;padding:1px 6px;border-radius:999px;background:rgba(107,78,255,.08);color:var(--fig-acc)}
+.plug .view{position:absolute;inset:78px 0 0;background:#fff;opacity:0;transform:translateX(16px);transition:opacity .4s var(--ease),transform .45s var(--ease);padding:12px 14px;display:flex;flex-direction:column}
+.plug.note .view{opacity:1;transform:none}
+.plug .view .back{font-size:11px;color:var(--fig-dim);margin-bottom:10px}
+.plug .view h3{margin:0 0 8px;font-size:17px;font-weight:700}
+.plug .view .meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.plug .view .meta i{font-style:normal;font-size:10.5px;padding:2px 7px;border-radius:999px;background:rgba(107,78,255,.08);color:var(--fig-acc)}
+.plug .view p{margin:0 0 6px;font-size:12px;line-height:1.5;color:#444}
+.plug .view ul{margin:0 0 8px;padding-left:16px;font-size:12px;line-height:1.5;color:#444}
+.plug .view .vfoot{margin-top:auto;display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--fig-line)}
+.plug .view .pb{height:34px;border-radius:8px;display:inline-flex;align-items:center;padding:0 12px;font-size:12px;font-weight:600;background:var(--fig-acc);color:#fff;position:relative}
+.plug .view .pb.ghost{background:#fff;color:var(--fig-text);border:1px solid #ddd}
+.plug .view .pb.press::after{content:"";position:absolute;inset:-4px;border-radius:11px;border:2px solid var(--fig-acc);opacity:.5}
+.plug .status{position:absolute;left:0;right:0;bottom:0;padding:12px 14px;background:#fff;border-top:1px solid var(--fig-line);font-size:12px;opacity:0;transform:translateY(8px);transition:opacity .35s,transform .4s}
+.plug .status.on{opacity:1;transform:none}
+.plug .status b{display:block;font-weight:600;margin-bottom:6px}
+.plug .status .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.plug .status .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;background:#eef3ff;color:#1e4ed8}
+.plug .status .st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.plug .status .st.warn{background:#fff1ec;color:#d8431a}
+.plug .status .st.info{background:#e8f6ff;color:#0b7fd1}
+.plug .status .act{height:28px;padding:0 10px;border-radius:7px;background:var(--fig-acc);color:#fff;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;position:relative}
+.plug .status .act.press::after{content:"";position:absolute;inset:-4px;border-radius:10px;border:2px solid var(--fig-acc);opacity:.5}
+.plug .toast{position:absolute;left:12px;right:12px;bottom:70px;padding:10px 12px;border-radius:8px;background:#0f8a3c;color:#fff;font-size:12px;font-weight:500;opacity:0;transform:translateY(6px);transition:opacity .3s,transform .35s}
+.plug .toast.on{opacity:1;transform:none}
+.mcur{position:absolute;left:0;top:0;pointer-events:none;transition:transform 1.1s var(--ease)}
+.mcur svg{width:22px;height:22px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+.mcur .tag{position:absolute;left:14px;top:16px;font-size:13px;font-weight:600;color:#fff;background:var(--fig-acc);padding:5px 9px;border-radius:7px;white-space:nowrap}
+.mcur.c2,.mcur.c3,.mcur.c4,.mcur.c5{transition:none}
+.mcur.c2 .tag{background:#ff24bd}.mcur.c3 .tag{background:#0fa958}.mcur.c4 .tag{background:#e8850c}.mcur.c5 .tag{background:#00a3bd}
+
+/* ---------- the teammates' frame: Onboarding v3, drawn step by step as the page scrolls ---------- */
+.mock{position:absolute;left:40px;top:470px;width:210px}
+.mock .mlab{position:absolute;left:0;top:-18px;font-size:11px;color:var(--fig-dim);font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.mock .mlab::before{content:"";width:10px;height:12px;border:1.5px solid var(--fig-dim);border-radius:2px}
+.mock .mcard{position:relative;background:#fff;border-radius:8px;box-shadow:0 8px 30px -10px rgba(0,0,0,.2),0 0 0 1px rgba(0,0,0,.06);padding:12px 12px 12px;display:grid;gap:7px;min-height:140px}
+.mock .mcard::before{content:"";position:absolute;inset:-1px;border-radius:8px;border:1.5px dashed #ff24bd;opacity:0;transition:opacity .3s}
+.mock.s0 .mcard::before{opacity:.8}
+.mock .mimg{height:38px;border-radius:6px;background:linear-gradient(135deg,#e9e4ff,#d7cbff);opacity:0;transform:scaleX(.2);transform-origin:left;transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.mock .mimg::after{content:"";position:absolute;left:12px;top:12px;width:50px;height:38px;border-radius:6px;background:rgba(255,255,255,.4)}
+.mock b{font-size:12.5px;font-weight:700;opacity:0;transform:translateY(5px);transition:opacity .3s,transform .4s var(--ease)}
+.mock p{margin:0;font-size:10.5px;line-height:1.4;color:#555;opacity:0;transform:translateY(5px);transition:opacity .3s .08s,transform .4s .08s var(--ease)}
+.mock .mbtn{height:26px;border-radius:6px;background:#15112a;color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;opacity:0;transform:scale(.9);transition:opacity .3s,transform .4s var(--ease)}
+.mock.s1 .mimg{opacity:1;transform:none}
+.mock.s2 b,.mock.s2 p{opacity:1;transform:none}
+.mock.s3 .mbtn{opacity:1;transform:none}
+.mock .pin{position:absolute;right:-12px;top:-12px;width:26px;height:26px;border-radius:14px 14px 14px 3px;background:#ff24bd;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;box-shadow:0 4px 12px -2px rgba(0,0,0,.35),0 0 0 2px #fff;opacity:0;transform:scale(.4);transition:opacity .3s,transform .45s var(--ease)}
+.mock.s3 .pin{opacity:1;transform:none}
+.mock .cmt{position:absolute;left:226px;top:-14px;width:180px;background:#fff;border-radius:10px;box-shadow:0 12px 36px -12px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.06);padding:9px 10px;display:grid;gap:8px;opacity:0;transform:translateY(8px) scale(.96);transform-origin:left top;transition:opacity .35s,transform .45s var(--ease)}
+.mock.s4 .cmt{opacity:1;transform:none}
+.mock .cm{display:grid;grid-template-columns:18px 1fr;gap:7px;align-items:start}
+.mock .cm.r{opacity:0;transform:translateY(6px);transition:opacity .3s,transform .4s var(--ease)}
+.mock.s5 .cm.r{opacity:1;transform:none}
+.mock .av{width:18px;height:18px;border-radius:50%;font-style:normal;font-size:9.5px;font-weight:700;color:#fff;display:grid;place-items:center}
+.mock .av.s{background:#ff24bd}.mock .av.k{background:#1030e0}
+.mock .cm b{font-size:11px;opacity:1;transform:none;transition:none}
+.mock .cm small{font-size:9.5px;color:var(--fig-dim);margin-left:4px;font-weight:500}
+.mock .cm p{font-size:10.5px;line-height:1.4;color:#333;margin-top:2px;opacity:1;transform:none;transition:none}
+.mock .cm .react{display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:10px;padding:1px 6px;border-radius:999px;background:#f3f3f3;color:#333}
+
+/* ---------- outro (inside the fixed stage, state 7) ---------- */
+.outro{position:fixed;inset:0;z-index:3;padding:calc(var(--ban-h) + var(--top-h) + env(safe-area-inset-top,0px)) var(--gutter-r) calc(var(--dock-h) + env(safe-area-inset-bottom,0px)) var(--gutter);display:grid;place-items:center;pointer-events:none;visibility:hidden}
+.outro.on{visibility:visible}
+.outro.live{pointer-events:auto}
+.outro .in{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:40px;width:min(1200px,100%)}
+.stone-wrap{position:relative;aspect-ratio:1;max-width:560px;width:100%;margin:0 auto;will-change:transform,opacity}
+.stone-wrap::before{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 76% 16%,rgba(255,201,138,.26),transparent 42%),radial-gradient(circle at 50% 60%,rgba(143,107,255,.14),transparent 60%);filter:blur(10px);pointer-events:none}
+.stone-wrap canvas{position:relative;width:100%;height:100%;display:block}
+.ocopy{display:grid;gap:22px;justify-items:start}
+.ocopy>*{will-change:transform,opacity}
+.ocopy h2{margin:0;font-size:clamp(48px,7vw,112px);color:var(--text);line-height:.9}
+.ocopy h2 small{display:block;font-family:var(--dot);font-size:.36em;color:var(--purple-2);margin-top:.3em;line-height:1.1}
+.ocopy .lede{margin:0;font-size:clamp(16px,1.3vw,19px);color:var(--dim);max-width:44ch}
+.ocopy .ctas{display:flex;flex-wrap:wrap;gap:12px}
+.author{display:inline-grid;grid-template-columns:52px 1fr;gap:14px;align-items:center;padding:12px 18px 12px 12px;border-radius:16px;background:var(--bg-2);border:1px solid var(--line);text-align:left}
+.author img{width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--purple)}
+.author b{display:block;font-size:14px}
+.author span{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+.author .links{display:flex;gap:6px}
+.author .links a{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;text-decoration:none;color:var(--text);padding:4px 9px;border-radius:999px;border:1px solid var(--line-2);transition:background .3s,color .3s}
+.author .links a:hover{background:var(--text);color:var(--bg)}
+.author .links svg{width:12px;height:12px}
+.credit{font-size:12px;color:var(--mute);display:flex;flex-wrap:wrap;gap:6px 18px}
+.credit a{color:var(--dim);text-decoration:none}
+.credit a:hover{color:var(--text)}
+
+/* ---------- dock (sticky footer) ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;height:calc(var(--dock-h) + env(safe-area-inset-bottom,0px));z-index:55;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:0 var(--gutter-r) env(safe-area-inset-bottom,0px) var(--gutter);background:rgba(11,11,14,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+.dock .g{display:flex;align-items:center;gap:4px;min-width:0}
+.dock a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:999px;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--dim);white-space:nowrap;transition:color .3s,background .3s}
+.dock a:hover{color:var(--text);background:var(--bg-3)}
+.dock a.p{color:var(--purple-2)}
+.dock a svg{width:14px;height:14px;flex:none}
+.dock .mid{font-family:var(--display);font-weight:700;font-size:14px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- Figma-style user cursor ---------- */
+.fcur{position:fixed;left:0;top:0;z-index:100;pointer-events:none;will-change:transform;transform:translate3d(-100px,-100px,0);display:none}
+html.has-cursor .fcur{display:block}
+.fcur svg{width:22px;height:22px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));transform-origin:4px 3px;transition:transform .15s var(--ease)}
+.fcur .tag{position:absolute;left:14px;top:16px;font-size:13px;font-weight:600;line-height:1;color:#fff;background:var(--purple);padding:6px 9px;border-radius:7px;white-space:nowrap;box-shadow:0 4px 14px -4px rgba(0,0,0,.5)}
+.fcur.is-down svg{transform:scale(.85)}
+.track{position:relative;z-index:0}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  :root{--cap-h:150px;--top-h:60px;--cue-h:44px}
+  .brand .word{font-size:22px}.brand canvas{width:40px;height:40px}.brand .sub{display:none}
+  .pill span{display:none}.pill{padding:0 10px}
+  .award{position:static;transform:none;gap:3px;height:38px;padding:0 10px}.award .laurel{width:18px;height:30px}.award b{font-size:11px}.award small{display:none}.award .stars svg,.award .stars svg:nth-child(3){width:7px;height:7px}
+  .top .btn-ghost{display:none}
+  .top .btn{padding:0 12px}.top .btn .t{display:none}.top .btn{gap:0}
+  .caps{grid-template-columns:1fr;padding-top:4px}
+  .counter{grid-column:1;grid-row:2;margin-top:6px;font-size:16px}.counter .bar{width:70px}.counter small{display:none}
+  .cap h2{font-size:clamp(24px,7vw,34px);margin-bottom:6px}.cap p{font-size:13px}
+  :root{--ban-h:44px;--gutter:max(16px,env(safe-area-inset-left,0px));--gutter-r:max(16px,env(safe-area-inset-right,0px))}
+  .ban{font-size:12px;gap:8px;padding-right:calc(var(--gutter-r) + 30px)}.ban .more{display:none}.ban .fmk{display:none}
+  .mac{border-width:4px;border-radius:18px;grid-template-rows:36px 1fr}
+  .mac .bar .t em,.mac .bar .tag{display:none}
+  .mac .body{grid-template-columns:1fr;grid-template-rows:1fr 40px 1fr;padding:10px}
+  .link .line{left:0;right:0;top:50%;bottom:auto;height:1px;width:auto;transform:translateY(-.5px)}
+  .link .lbl{top:50%;left:calc(50% + 30px);transform:translateY(-50%)}
+  .cuebtn{font-size:12px;height:44px;gap:9px}.cuebtn .lbl small{display:none}
+  .dock a span{display:none}.dock a{padding:0 9px}.dock .mid{display:none}
+  .outro .in{grid-template-columns:1fr;gap:6px}
+  .stone-wrap{max-width:240px}
+  .ocopy{justify-items:center;text-align:center;gap:14px}
+  .ocopy h2{font-size:clamp(40px,12vw,64px)}
+  .ocopy .ctas{justify-content:center}
+  .author{display:none}
+  .fly.card{width:200px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cuebtn .mouse::after,.cuebtn .chev svg,.cuebtn::before,.cue.nudge .cuebtn,.ban::after{animation:none}
+  .btn,.btn::before{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Figma's own mark: 38 × 57, five pieces, exact official geometry -->
+  <symbol id="fm" viewBox="0 0 38 57">
+    <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE"/>
+    <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83"/>
+    <path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" fill="#FF7262"/>
+    <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#F24E1E"/>
+    <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#A259FF"/>
+  </symbol>
+  <symbol id="laurel" viewBox="0 0 40 68"><path d="M36 66Q0 44 16 2" fill="none" stroke="url(#lg)" stroke-width="1.5" stroke-linecap="round"/><g fill="url(#lg)"><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(34.0 61.6) rotate(-21) scale(2.94 6.40)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(31.1 65.9) rotate(-89) scale(2.94 6.40)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(26.6 55.6) rotate(-12) scale(2.75 5.98)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(23.0 59.4) rotate(-80) scale(2.75 5.98)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(20.9 49.1) rotate(-1) scale(2.56 5.56)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(16.7 52.1) rotate(-69) scale(2.56 5.56)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(16.9 42.0) rotate(11) scale(2.36 5.14)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(12.1 44.1) rotate(-57) scale(2.36 5.14)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(14.5 34.3) rotate(23) scale(2.17 4.72)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(9.4 35.3) rotate(-45) scale(2.17 4.72)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(13.7 25.9) rotate(34) scale(1.98 4.30)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(8.5 25.9) rotate(-34) scale(1.98 4.30)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(14.5 16.8) rotate(44) scale(1.78 3.88)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(9.4 15.9) rotate(-24) scale(1.78 3.88)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(17.0 7.0) rotate(52) scale(1.59 3.46)"/><path d="M0-1C.55-.45.55.45 0 1C-.55.45-.55-.45 0-1z" transform="translate(12.1 5.3) rotate(-16) scale(1.59 3.46)"/></g></symbol>
+  <linearGradient id="lg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#8f6bff"/><stop offset="1" stop-color="#efe9ff"/></linearGradient>
+  <symbol id="star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.4l-6 3.4 1.3-6.7-5-4.6 6.8-.8z"/></symbol>
+  <symbol id="omark" viewBox="0 0 64 64"><path d="M32 6l17 12-4 30-13 10-15-7-7-30z" fill="#1b1b23"/><path d="M32 6l17 12-15 6z" fill="#2c2c38"/><path d="M10 21l7 3 15-6-7-12z" fill="#23232e"/><path d="M17 24l15-6 17 0-4 30-13 10z" fill="#15151c"/><path d="M17 24l15-6-1 32-14-7z" fill="#1f1f29"/><path d="M32 6l17 12-1 0-15 6z" fill="#3a3a48" opacity=".6"/><g transform="translate(23.5 20) scale(.45)"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" fill="#FF7262"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#F24E1E"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#A259FF"/></g></symbol>
+</svg>
+
+<div class="ban" id="ban" role="region" aria-label="Announcement">
+  <span class="new">NEW</span>
+  <svg class="fmk" aria-hidden="true"><use href="#fm"/></svg>
+  <span class="msg"><b>Figma introduced Specs.</b> <span class="more">Obspec keeps your Obsidian notes in sync with them.</span></span>
+  <a class="cta" href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read">Read Figma's introduction ↗</a>
+  <span class="timer" aria-hidden="true"></span>
+  <button class="x" id="banx" type="button" aria-label="Dismiss announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+
+<header class="top">
+  <a class="brand" href="#top" data-magnet><canvas id="logo" width="100" height="100" aria-label="Obspec logo"></canvas><span><span class="word">Obspec</span><span class="sub">Obsidian<i>×</i>Figma Specs</span></span></a>
+  <div class="award" aria-label="First Figma plugin for Obsidian sync">
+    <svg class="laurel" aria-hidden="true"><use href="#laurel"/></svg>
+    <div class="aw"><span class="stars" aria-hidden="true"><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg><svg><use href="#star"/></svg></span><b>First Figma plugin</b><small>for Obsidian sync</small></div>
+    <svg class="laurel flip" aria-hidden="true"><use href="#laurel"/></svg>
+  </div>
+  <div class="top-right">
+    <a class="btn btn-ghost" href="https://github.com/Kamal007OLica/obspec" target="_blank" rel="noopener" data-cursor="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.9 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="t">Contribute</span></a>
+    <a class="btn" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin</span></a>
+  </div>
+</header>
+
+<div class="caps" id="caps">
+  <div class="cap on"><h2 class="d">Search your vault inside Figma<span class="sq"></span></h2><p>Every note in your Obsidian vault, one search away from the canvas. Nothing leaves your machine.</p></div>
+  <div class="cap"><h2 class="d">Type once<span class="sq"></span> Find everything</h2><p>Title, path, tags and body. Results in under a millisecond, with the matching notes lit up in the vault.</p></div>
+  <div class="cap"><h2 class="d">Drop a note on the canvas</h2><p>A note becomes a Spec. A real Figma frame, so it moves, resizes and takes comments like everything else.</p></div>
+  <div class="cap"><h2 class="d">Linked<span class="sq"></span> Both ways</h2><p>A thread ties the Spec to its note. Status sits right on the frame.</p></div>
+  <div class="cap"><h2 class="d">Edit in Obsidian<span class="sq"></span> Pull in Figma</h2><p>Change the note on disk and Figma notices while the file is still open. Pull brings the line in.</p></div>
+  <div class="cap"><h2 class="d">Change the design<span class="sq"></span> Send it back</h2><p>Size, fill, label and a deep link travel back into the note's Design section.</p></div>
+  <div class="counter"><span id="cnum">01</span><span class="bar"><i id="cbar"></i></span><span>06</span><small>steps</small></div>
+</div>
+
+<div class="stage" id="stage" aria-hidden="true">
+  <div class="mac" id="mac">
+    <div class="bar"><i></i><i></i><i></i><span class="t">Obspec <em>· Obsidian ↔ Figma</em> <span class="tag">local bridge · 127.0.0.1:27123</span></span></div>
+    <div class="body">
+      <div class="cell l"><div class="fit" id="fitL">
+        <div class="win" id="winL"><div class="pbar"><i></i><i></i><i></i><span class="t">Obsidian <em>· Demo Vault</em></span></div>
+        <div class="obs" id="obs">
+      <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="tree">
+        <h6>Vault</h6>
+        <div>0-Inbox <span>15</span></div>
+        <div>01-Project <span></span></div>
+        <div class="sub">Checkout <span>12</span></div>
+        <div class="sub on">Specs <span>8</span></div>
+        <div class="sub">Research <span>31</span></div>
+        <div>02-Area <span></span></div>
+        <div class="sub">Design system <span>44</span></div>
+        <div class="sub">Payments <span>19</span></div>
+        <div class="sub">Growth <span>27</span></div>
+        <div>03-Resources <span></span></div>
+        <div class="sub">Books <span>98</span></div>
+        <div class="sub">Reading list <span>120</span></div>
+        <div>04-Archive <span>210</span></div>
+      </div>
+      <div class="main">
+        <div class="bar"><b>01-Project / Specs</b><span>·</span>8 notes</div>
+        <div class="search">Search…</div>
+        <div class="list">
+          <h6>Pinned</h6>
+          <div class="note" id="n-pay"><b><em>Pay</em>ment Methods</b><p>Order of methods on the payment step, decided by device and locale.</p><div class="t"><i>#checkout</i><i>#payments</i><i>#spec</i></div></div>
+          <h6>Today</h6>
+          <div class="note" id="n-chk"><b>Checkout Redesign</b><p><em>Pay</em>ment above the fold, cards below. One screen, no surprises.</p><div class="t"><i>#checkout</i><i>#p0</i></div></div>
+          <div class="note" id="n-ons"><b>Onboarding v3</b><p>Three screens, one promise. Skip allowed after the second.</p><div class="t"><i>#growth</i></div></div>
+          <h6>Previous 7 days</h6>
+          <div class="note" id="n-btn"><b>Button / Primary</b><p>160 × 36, fill 6B4EFF, label sentence case.</p><div class="t"><i>#design-system</i></div></div>
+          <div class="note" id="n-rsh"><b>Research digest, week 41</b><p>Eleven interviews. People want the last used method remembered.</p><div class="t"><i>#research</i></div></div>
+        </div>
+      </div>
+      <div class="editor">
+        <div class="crumb">01-Project / Specs / Payment Methods.md</div>
+        <h1>Payment Methods</h1>
+        <div>Order of methods on the payment step, decided by device and locale.</div>
+        <div><span class="h">## Rules</span></div>
+        <div>- Apple Pay first on iOS and Safari, Google Pay first on Android</div>
+        <div>- Cards always available, PayPal only in US, UK and DE</div>
+        <div>- Remember the last used method per account</div>
+        <div><span class="new" id="newline"></span><span class="caret" id="newcaret"></span></div>
+        <div class="design" id="design">
+          <div><span class="h">## Design</span> <span style="color:var(--ink-dim)">written by Obspec</span></div>
+          <table><tr><td class="k">Node</td><td>Button / Primary · 2:2</td></tr><tr><td class="k">Size</td><td>160 × 36</td></tr><tr><td class="k">Fill</td><td>6B4EFF</td></tr><tr><td class="k">Label</td><td>Pay now</td></tr><tr><td class="k">Link</td><td>figma.com/design/…?node-id=2-2</td></tr></table>
+        </div>
+      </div>
+    </div></div>
+      </div></div>
+      <div class="cell link" id="link">
+        <div class="line"></div>
+        <div class="badge" id="lbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6M10 18l-6-6 6-6"/></svg></div>
+        <div class="lbl" id="llbl">Insert</div>
+      </div>
+      <div class="cell r"><div class="fit" id="fitR">
+        <div class="win" id="winR"><div class="pbar"><i></i><i></i><i></i><span class="t"><svg aria-hidden="true"><use href="#fm"/></svg>Figma <em>· Checkout</em></span></div>
+        <div class="fig" id="fig">
+      <div class="tb"><span><i></i>Checkout, Oct 2026</span><span>Payment step</span></div>
+      <div class="spec" id="spec">
+        <div class="lab">Spec · Payment Methods</div>
+        <span class="sync" id="sync">In sync</span>
+        <i class="hd tl"></i><i class="hd tr"></i><i class="hd bl"></i><i class="hd br"></i>
+        <h3>Payment Methods</h3>
+        <div class="meta"><i>#checkout</i><i>#payments</i><i>#spec</i></div>
+        <p>Order of methods on the payment step, decided by device and locale.</p>
+        <h4>Rules</h4>
+        <ul>
+          <li>Apple Pay first on iOS and Safari, Google Pay first on Android</li>
+          <li>Cards always available, PayPal only in US, UK and DE</li>
+          <li>Remember the last used method per account</li>
+          <li class="new" id="specnew">Show loyalty points on the summary line</li>
+        </ul>
+        <div class="btnrow"><span class="fbtn" id="fbtn"><span class="dim">Button / Primary · 160 × 36</span><span id="fbtn-label">Continue</span></span></div>
+      </div>
+      <div class="plug" id="plug">
+        <div class="ph"><svg class="pmark" aria-hidden="true"><use href="#omark"/></svg>Obspec<span class="ver">v1.0</span><span class="vault">Demo Vault</span></div>
+        <div class="tabs"><span class="on">Search</span><span>Selection</span><span>Linked<em>3</em></span></div>
+        <div class="q"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><b id="typed"></b><span class="caret"></span><span id="qph">Search your vault</span></div>
+        <div class="ops"><i>tag:</i><i>path:</i><i>"phrase"</i><i>-exclude</i></div>
+        <div class="empty" id="empty">Type to search every note in the vault.<br>Title, path, tags and body.</div>
+        <div class="res" id="res">
+          <h6><span>Results</span><span id="rescount">2 notes · 0.4 ms</span></h6>
+          <div class="r" id="r-pay"><b><span><em>Pay</em>ment Methods</span><span>Specs</span></b><p>L6 Apple <em>Pay</em> first on iOS and Safari, Google <em>Pay</em> first on Android</p><div class="t"><i>#checkout</i><i>#payments</i><i>#spec</i></div></div>
+          <div class="r" id="r-chk"><b><span>Checkout Redesign</span><span>Specs</span></b><p>L13 <em>Pay</em>ment above the fold, cards below</p><div class="t"><i>#checkout</i><i>#p0</i></div></div>
+        </div>
+        <div class="view">
+          <div class="back">‹ Back · Specs</div>
+          <h3>Payment Methods</h3>
+          <div class="meta"><i>#checkout</i><i>#payments</i><i>#spec</i><i style="background:#e8f6ff;color:#0b7fd1">82 words</i></div>
+          <p>Order of methods on the payment step, decided by device and locale.</p>
+          <ul><li>Apple Pay first on iOS and Safari</li><li>Cards always available</li><li>Remember the last used method</li></ul>
+          <div class="vfoot"><span class="pb" id="pb-insert">Insert spec card</span><span class="pb ghost">Link selection</span></div>
+        </div>
+        <div class="status" id="status">
+          <b>Payment Methods · linked to Spec</b>
+          <div class="row"><span class="st" id="st">In sync</span><span class="act" id="act" style="opacity:0">Pull</span></div>
+        </div>
+        <div class="toast" id="toast">Inserted “Payment Methods”</div>
+      </div>
+      <div class="mock s0" id="mock">
+        <div class="mlab">Onboarding v3 · Step 2</div>
+        <div class="mcard">
+          <div class="mimg"></div>
+          <b>Pick your vault</b>
+          <p>Obspec reads the notes straight off your disk. Nothing is uploaded.</p>
+          <span class="mbtn">Continue</span>
+          <span class="pin" aria-hidden="true">S</span>
+        </div>
+        <div class="cmt">
+          <div class="cm"><i class="av s">S</i><div><b>Saro</b><small>2m</small><p>Obspec is the best plugin for this. That spec on the right is literally my vault note.</p></div></div>
+          <div class="cm r"><i class="av k">K</i><div><b>Kamal</b><small>now</small><p>Pull after you edit, it stays in sync.</p><span class="react">👍 3</span></div></div>
+        </div>
+      </div>
+      <div class="mcur" id="mcur"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#1030e0" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Kamal</span></div>
+      <div class="mcur c2" id="cur2"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#ff24bd" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Saro</span></div>
+      <div class="mcur c3" id="cur3"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#0fa958" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Manoj</span></div>
+      <div class="mcur c4" id="cur4"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#e8850c" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Riya</span></div>
+      <div class="mcur c5" id="cur5"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#00a3bd" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Bala</span></div>
+      <div class="tools"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<svg class="thread" id="thread" aria-hidden="true">
+  <line class="ray" id="ray1"/><line class="ray" id="ray2"/>
+  <path class="halo" id="thalo"/><path id="tpath"/>
+  <circle id="tdot" r="4"/><circle id="tdot2" r="2.5"/>
+</svg>
+<div class="fly card" id="fly-card"><b>Payment Methods</b><p>Order of methods on the payment step, decided by device and locale.</p><div class="tags"><i>#checkout</i><i>#payments</i><i>#spec</i></div></div>
+<div class="fly line" id="fly-line">- Show loyalty points on the summary line</div>
+<div class="fly chip" id="fly-chip"><span class="b">Pay now</span><span class="m"><b>Button / Primary</b>160 × 36 · 6B4EFF</span></div>
+
+<div class="outro" id="outro" aria-hidden="false">
+  <div class="in">
+    <div class="stone-wrap" id="stonewrap"><canvas id="stone" aria-label="The Figma mark carved from obsidian, on a volcanic pedestal"></canvas></div>
+    <div class="ocopy" id="ocopy">
+      <h2 class="d">Obspec<small>Two way sync between Obsidian and Figma Specs</small></h2>
+      <p class="lede">Search all your Obsidian notes inside your Figma canvas. Insert them as Specs. Keep both sides in sync, locally. Every note stays a plain .md file, the same format Figma Specs now reads.</p>
+      <div class="ctas">
+        <a class="btn btn-lg" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin on Figma</span></a>
+        <a class="btn btn-ghost btn-lg" href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          <span class="t">Report a bug</span>
+        </a>
+      </div>
+      <div class="author">
+        <img src="assets/kamal.jpg" alt="Kamalraaj Senthilkumar" width="52" height="52">
+        <div>
+          <b>Kamalraaj Senthilkumar</b><span>Designer who builds. Obspec, Uki AI, ZenMode OS.</span>
+          <div class="links">
+            <a href="mailto:kr07.work@gmail.com" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</a>
+            <a href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg>LinkedIn</a>
+          </div>
+        </div>
+      </div>
+      <div class="credit"><span>© 2026 Kamalraaj Senthilkumar</span><span>Bugs and support: <a href="mailto:kr07.work@gmail.com">kr07.work@gmail.com</a></span><a href="https://help.figma.com/hc/en-us/articles/44049066011671" target="_blank" rel="noopener">Get started with Figma Specs</a><span>Open source, MIT</span><span>Not affiliated with Figma or Obsidian</span><span>Type: OffBit by Power Type</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="cue" id="cue">
+  <button class="cuebtn" id="cuebtn" type="button" data-cursor="Next">
+    <span class="mouse" aria-hidden="true"></span>
+    <span class="lbl l0"><small>Scroll or click</small><span>Scroll to watch it sync</span></span>
+    <span class="lbl l1"><small id="cuesub">Step 1 of 6</small><span id="cuemain">Next: type once, find everything</span></span>
+    <span class="chev" aria-hidden="true"><svg viewBox="0 0 16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6 5 6-5"/></svg><svg viewBox="0 0 16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6 5 6-5"/></svg><svg viewBox="0 0 16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6 5 6-5"/></svg></span>
+  </button>
+</div>
+
+<div class="track" id="track"><span id="top"></span></div>
+
+<div class="dock">
+  <div class="g">
+    <a class="p" href="https://obsidian.md/download" target="_blank" rel="noopener" data-cursor="Download"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.2 2.3 9.1 6.6a2 2 0 0 0-.7 1.1L6.6 15l-2.3 2.9a1 1 0 0 0 .1 1.3l3.9 3.6a1 1 0 0 0 1.5-.2l1.6-2.4 4.6 1.4a1 1 0 0 0 1.2-.6l2.9-7.8a1 1 0 0 0-.1-.9L15.7 2.5a1 1 0 0 0-1.5-.2z"/></svg><span>Download Obsidian</span></a>
+    <a href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read"><svg><use href="#fm"/></svg><span>Figma Specs</span></a>
+  </div>
+  <div class="mid" id="dockmid">Obsidian to Figma and back</div>
+  <div class="g">
+    <a href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Report a bug</span></a>
+    <a href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg><span>LinkedIn</span></a>
+  </div>
+</div>
+
+<div class="fcur" id="fcur" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#8f6bff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag" id="ftag">You</span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var N=6,TOTAL=7; /* six demo states + one outro state, all on the fixed stage */
+var root=document.documentElement,rm=matchMedia('(prefers-reduced-motion: reduce)').matches,fine=matchMedia('(pointer: fine)').matches;
+var vw=innerWidth,vh=innerHeight,mobile=vw<900;
+if(fine&&!rm) root.classList.add('has-cursor');
+var $=function(id){return document.getElementById(id);};
+var track=$('track'),caps=[].slice.call(document.querySelectorAll('.cap')),capsEl=$('caps'),cnum=$('cnum'),cbar=$('cbar'),dockmid=$('dockmid'),cue=$('cue'),cueBtn=$('cuebtn'),cueSub=$('cuesub'),cueMain=$('cuemain');
+/* announcement banner: dismiss sticks per browser */
+try{if(localStorage.getItem('obspec-ban')==='1') root.classList.add('no-ban');}catch(e){}
+function hideBan(){if(root.classList.contains('no-ban')) return;root.classList.add('no-ban');try{localStorage.setItem('obspec-ban','1');}catch(e){}fit();setTimeout(fit,600);}
+$('banx').addEventListener('click',hideBan);
+if(!root.classList.contains('no-ban')) setTimeout(hideBan,15000); /* first visit: the banner drains for 15 s, then folds away for good */
+var mac=$('mac'),outro=$('outro'),stonewrap=$('stonewrap'),ocopy=[].slice.call($('ocopy').children);
+var obs=$('obs'),plug=$('plug'),typed=$('typed'),qph=$('qph'),empty=$('empty'),rPay=$('r-pay'),rChk=$('r-chk'),nPay=$('n-pay'),nChk=$('n-chk');
+var notes=[].slice.call(document.querySelectorAll('.obs .note'));
+var spec=$('spec'),sync=$('sync'),specnew=$('specnew'),fbtn=$('fbtn'),fbtnLabel=$('fbtn-label'),status=$('status'),st=$('st'),act=$('act'),toast=$('toast'),pbInsert=$('pb-insert');
+var mcur=$('mcur'),mock=$('mock'),newline=$('newline'),newcaret=$('newcaret'),design=$('design');
+var fitL=$('fitL'),fitR=$('fitR'),cellL=fitL.parentNode,cellR=fitR.parentNode,lbadge=$('lbadge'),llbl=$('llbl');
+var tpath=$('tpath'),thalo=$('thalo'),tdot=$('tdot'),tdot2=$('tdot2'),ray1=$('ray1'),ray2=$('ray2');
+var flyCard=$('fly-card'),flyLine=$('fly-line'),flyChip=$('fly-chip');
+var MID=['Obsidian to Figma and back','Searching the vault','Dropping the note on the canvas','Linked both ways','Pull from Obsidian','Send to Obsidian','Get Obspec'];
+var NEXT=['search your vault','type once, find everything','drop a note on the canvas','link it both ways','edit in Obsidian, pull in Figma','change the design, send it back','meet Obspec'];
+/* teammates on the canvas: a resting spot per state (720-space), they drift around it */
+var COLLAB=[
+  {el:$('cur2'),ph:0.8,x:200,y:150,base:[[220,150],[260,170],[720,600],[720,600],[258,438],[720,600],[720,600]]},
+  {el:$('cur3'),ph:2.3,x:330,y:260,base:[[400,260],[430,300],[350,62],[350,62],[350,62],[350,62],[350,62]]},
+  {el:$('cur4'),ph:4.1,x:150,y:520,base:[[150,520],[120,560],[200,600],[60,600],[130,600],[110,520],[110,520]]},
+  {el:$('cur5'),ph:5.6,x:90,y:590,base:[[90,590],[210,500],[60,480],[200,590],[90,500],[220,560],[220,560]]}
+];
+var curState=0;
+var NEWLINE='- Show loyalty points on the summary line';
+
+/* ---------- fit the two screens at one shared scale ---------- */
+var PW=880,PH=720; /* each screen's design size */
+var scrollMax=1,target=0,prog=0;
+function fit(){
+  vw=innerWidth;vh=innerHeight;mobile=vw<900;
+  var specs=[[fitL,cellL],[fitR,cellR]];
+  var s=Math.min.apply(null,specs.map(function(a){return Math.min(a[1].clientWidth/PW,a[1].clientHeight/PH);}));
+  specs.forEach(function(a){
+    var cw=a[1].clientWidth,ch=a[1].clientHeight,ox=(cw-PW*s)/2,oy=(ch-PH*s)/2;
+    a[0].style.transform='translate('+ox.toFixed(1)+'px,'+oy.toFixed(1)+'px) scale('+s.toFixed(4)+')';
+  });
+  track.style.height=(TOTAL*100+60)+'vh';
+  scrollMax=track.offsetHeight-vh;
+  onScroll();
+}
+function onScroll(){
+  var y=scrollY;target=Math.max(0,Math.min(TOTAL,y/scrollMax*TOTAL));
+  root.classList.toggle('scrolled',y>30);
+}
+addEventListener('scroll',onScroll,{passive:true});
+addEventListener('resize',fit);
+setTimeout(function(){if(scrollY<30) cue.classList.add('nudge');},3000);
+/* the cue is also a button: one click plays the next step */
+cueBtn.addEventListener('click',function(){
+  var s=Math.floor(prog+0.001),y=s>=N?scrollMax:Math.min(scrollMax,(s+1.9)/TOTAL*scrollMax);
+  scrollTo({top:y,behavior:rm?'auto':'smooth'});
+});
+
+/* ---------- helpers ---------- */
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a,b){return clamp((t-a)/(b-a));}
+function ease(t){return t*t*(3-2*t);}
+function easeOut(t){return 1-Math.pow(1-t,3);}
+function bell(t){return Math.sin(Math.PI*clamp(t));}
+function setCls(el,c,on){if(el.classList.contains(c)!==!!on) el.classList.toggle(c,!!on);}
+function setText(el,s){if(el.textContent!==s) el.textContent=s;}
+function moveCur(x,y){var s='translate('+x+'px,'+y+'px)';if(mcur.style.transform!==s) mcur.style.transform=s;}
+function rectOf(el){var r=el.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2};}
+function curve(a,b){ /* S-curve across the gap, horizontal on desktop, vertical on phones */
+  if(mobile) return 'M'+a.x+','+a.y+' C'+a.x+','+((a.y+b.y)/2)+' '+b.x+','+((a.y+b.y)/2)+' '+b.x+','+b.y;
+  return 'M'+a.x+','+a.y+' C'+((a.x+b.x)/2)+','+a.y+' '+((a.x+b.x)/2)+','+b.y+' '+b.x+','+b.y;
+}
+var pathLen=0,pathD='';
+function setThread(a,b){var d=curve(a,b);if(d!==pathD){pathD=d;tpath.setAttribute('d',d);thalo.setAttribute('d',d);pathLen=tpath.getTotalLength();}}
+function anchors(fromEl,toEl){
+  var A=rectOf(fromEl),B=rectOf(toEl);
+  if(mobile) return [{x:A.cx,y:A.y+A.h},{x:B.cx,y:B.y}];
+  return [{x:A.x+A.w,y:A.cy},{x:B.x,y:B.cy}];
+}
+function flyAlong(el,k,A,B,sFrom,sTo,extra){
+  /* el travels the current thread path from A to B, scaling from sFrom to sTo; k 0..1 */
+  var e=ease(k),p=tpath.getPointAtLength(pathLen*e),s=sFrom+(sTo-sFrom)*e;
+  var w=el.offsetWidth,h=el.offsetHeight;
+  var ox=mobile?-w*s/2:(k<0.5?-w*s:0),oy=mobile?(k<0.5?-h*s:0):-h*s/2;
+  el.style.opacity=String(Math.min(1,k*8,(1-k)*8+0.1));
+  el.style.transform='translate('+(p.x+ox).toFixed(1)+'px,'+(p.y+oy).toFixed(1)+'px) scale('+s.toFixed(3)+') '+(extra||'');
+}
+function glow(k,dir){
+  var q=dir>0?k:1-k,p=tpath.getPointAtLength(pathLen*ease(q)),p2=tpath.getPointAtLength(pathLen*ease(clamp(q-0.06*dir)));
+  tdot.setAttribute('cx',p.x);tdot.setAttribute('cy',p.y);tdot.style.opacity=String(bell(k));
+  tdot2.setAttribute('cx',p2.x);tdot2.setAttribute('cy',p2.y);tdot2.style.opacity=String(bell(k)*0.6);
+}
+
+/* ---------- timeline: everything derives from p in [0,7] ---------- */
+var lastState=-1;
+function apply(p){
+  var s=Math.min(6,Math.floor(p)),t=p-s;
+  if(s!==lastState){
+    caps.forEach(function(c,i){setCls(c,'on',i===s);});
+    if(s<N) setText(cnum,'0'+(s+1));
+    setText(dockmid,MID[s]);lastState=s;curState=s;
+    setText(cueSub,s<N?'Step '+(s+1)+' of '+N:'The end');
+    setText(cueMain,s<N?'Next: '+NEXT[s+1]:'Back to the top');
+    setCls(outro,'on',s>=5);
+  }
+  cbar.style.transform='scaleX('+(Math.min(1,p/N)).toFixed(4)+')';
+  /* teammates' frame: each step adds a piece, the comment thread opens at step 5 */
+  var mk=s+(t>0.5?1:0);
+  for(var mi=0;mi<=5;mi++) setCls(mock,'s'+mi,mk>=mi);
+
+  /* ---- state 1: search typing, rays from the vault to the results ---- */
+  var q='payment',nChars=s<1?0:s===1?Math.round(seg(t,0.05,0.5)*q.length):q.length;
+  setText(typed,q.slice(0,nChars));qph.style.display=nChars?'none':'';
+  setCls(plug,'typing',s===1&&t<0.55);
+  var results=s>1||(s===1&&t>0.55),res2=results&&(s>1||t>0.62);
+  empty.style.display=results||nChars?'none':'';
+  setCls(rPay,'on',results);setCls(rChk,'on',res2);
+  notes.forEach(function(n){setCls(n,'hit',results&&(n===nPay||(n===nChk&&res2)));});
+  var rayK=s===1?seg(t,0.55,0.9):0;
+  [[ray1,nPay,rPay,0],[ray2,nChk,rChk,0.07]].forEach(function(r){
+    var k=seg(rayK,r[3],r[3]+0.8);
+    if(k>0&&k<1){var A=rectOf(r[1]),B=rectOf(r[2]);var ax=mobile?A.cx:A.x+A.w,ay=mobile?A.y+A.h:A.cy,bx=mobile?B.cx:B.x,by=mobile?B.y:B.cy;
+      r[0].setAttribute('x1',ax);r[0].setAttribute('y1',ay);r[0].setAttribute('x2',ax+(bx-ax)*easeOut(k));r[0].setAttribute('y2',ay+(by-ay)*easeOut(k));r[0].style.opacity=String(bell(k));}
+    else r[0].style.opacity='0';
+    setCls(r[2],'lit',k>0.6&&k<1);
+  });
+
+  /* ---- state 2: open note, insert, the note card flies the thread ---- */
+  var noteOpen=s>2||(s===2&&t>0.05);
+  setCls(plug,'note',noteOpen&&s<3);
+  setCls(rPay,'sel',s===2&&t<=0.05);
+  setCls(pbInsert,'press',s===2&&t>0.2&&t<0.32);
+  var f=s>2?1:s===2?seg(t,0.25,0.85):0,landed=f>=0.97;
+  setCls(spec,'on',landed);
+  setCls(toast,'on',s===2&&t>0.85);
+  setCls(nPay,'gone',s===2&&f>0&&f<0.97);
+  var active='';
+  if(s>=2&&s<6){var an=anchors(nPay,spec);setThread(an[0],an[1]);}
+  if(f>0&&!landed){
+    var A=rectOf(nPay),B=rectOf(spec);
+    flyAlong(flyCard,f,A,B,A.w/260,B.w/260);glow(f,1);active='Insert';
+  } else flyCard.style.opacity='0';
+
+  /* ---- state 3: the thread draws itself, status appears ---- */
+  var threadK=s>3?1:s===3?seg(t,0.05,0.65):0;
+  tpath.style.strokeDasharray=pathLen+' '+pathLen;tpath.style.strokeDashoffset=String(pathLen*(1-easeOut(threadK)));
+  tpath.style.opacity=s>=3&&s<6?(s===3?'1':'.45'):'0';
+  thalo.style.strokeDasharray=tpath.style.strokeDasharray;thalo.style.strokeDashoffset=tpath.style.strokeDashoffset;
+  thalo.style.opacity=s===3?String(0.5*bell(seg(t,0.05,0.9))):'0';
+  setCls(spec,'sel',s===3||(s===5&&t<0.35));
+  setCls(status,'on',s>=3);
+  if(s<3) moveCur(640,420); else if(s===3) moveCur(270,240); else if(s===4) moveCur(772,546); else moveCur(110,400); /* s4: on Pull, s5: on the spec's button */
+
+  /* ---- state 4: a line typed in Obsidian travels across on Pull ---- */
+  setCls(obs,'edit',s>=4);
+  var typedLine=s>4?NEWLINE.length:s===4?Math.round(seg(t,0.05,0.4)*NEWLINE.length):0;
+  setText(newline,NEWLINE.slice(0,typedLine));newcaret.style.display=(s===4&&t<0.45)?'':'none';
+  var noteChanged=s===4&&t>0.42&&t<0.8,pullK=s===4?seg(t,0.55,0.82):0;
+  setCls(act,'press',s===4&&t>0.55&&t<0.62);
+  act.style.opacity=noteChanged?'1':'0';setText(act,'Pull');
+  setCls(specnew,'on',s>4||(s===4&&t>=0.8));
+  if(pullK>0&&pullK<1){var an4=anchors(newline,specnew);setThread(an4[0],an4[1]);flyAlong(flyLine,pullK,null,null,1,0.9);glow(pullK,1);active='Pull';}
+  else flyLine.style.opacity='0';
+
+  /* ---- state 5: the button's properties fly back on Send ---- */
+  var labelChanged=s===5&&t>0.12;
+  setText(fbtnLabel,labelChanged?'Pay now':'Continue');
+  setCls(fbtn,'sel',s===5&&t>0.05&&t<0.4);
+  var designChanged=s===5&&t>0.22&&t<0.75,sendK=s===5?seg(t,0.42,0.74):0;
+  if(sendK>0&&sendK<1){var an5=anchors(design,fbtn);setThread(an5[0],an5[1]);flyAlong(flyChip,1-sendK,null,null,0.8,1);glow(sendK,-1);active='Send';}
+  else flyChip.style.opacity='0';
+  setCls(design,'on',s===5&&t>=0.72);
+  var stTxt='In sync',stCls='';
+  if(noteChanged){stTxt='Note changed';stCls='warn';}else if(designChanged){stTxt='Design changed';stCls='info';}
+  if(designChanged){act.style.opacity='1';setText(act,'Send to Obsidian');setCls(act,'press',s===5&&t>0.42&&t<0.5);}
+  [st,sync].forEach(function(el){setText(el,stTxt);setCls(el,'warn',stCls==='warn');setCls(el,'info',stCls==='info');});
+  if(!active){tdot.style.opacity='0';tdot2.style.opacity='0';}
+  setCls(lbadge,'on',!!active);setCls(llbl,'on',!!active);
+  setText(llbl,active||(s>=3?'In sync':''));
+
+  /* ---- state 6: parallax hand-off, the window recedes and the stone comes forward ---- */
+  var u=s===6?clamp(t):0,ue=ease(u);
+  if(s===5&&t>0.85) u=0;
+  var out=ease(seg(u,0,0.5)),inn=seg(u,0.38,1);
+  mac.style.transform='translate3d(0,'+(-out*260).toFixed(1)+'px,0) scale('+(1-out*0.14).toFixed(4)+')';
+  mac.style.opacity=String(1-ease(seg(u,0.05,0.45)));
+  mac.style.filter=out>0.01?'blur('+(out*14).toFixed(1)+'px)':'';
+  capsEl.style.opacity=String(1-seg(u,0,0.2));
+  $('thread').style.opacity=String(1-seg(u,0,0.2));
+  setCls(cue,'off',u>0);
+  var vis=u>0.3;
+  setCls(outro,'live',u>0.75);
+  var se=ease(seg(inn,0,0.7));
+  stonewrap.style.opacity=String(se);
+  stonewrap.style.transform='translate3d(0,'+((1-se)*140).toFixed(1)+'px,0) scale('+(0.72+0.28*se).toFixed(4)+')';
+  ocopy.forEach(function(el,i){var k=ease(seg(inn,0.08+i*0.09,0.55+i*0.09));el.style.opacity=String(k);el.style.transform='translate3d(0,'+((1-k)*(70+i*16)).toFixed(1)+'px,0)';});
+  outro.style.visibility=vis?'visible':'hidden';
+}
+
+/* ---------- 3D obsidian stone: faceted volcanic glass with a polished table facet, the Figma mark printed flat on it.
+   Nothing glows: no halo, no sparkle, no wireframe. The stone reads through its reflections of a neutral studio. ---------- */
+var stones=[];
+function makeEnv(){
+  function face(draw){var c=document.createElement('canvas');c.width=c.height=256;var g=c.getContext('2d');var bg=g.createLinearGradient(0,0,0,256);bg.addColorStop(0,'#17171c');bg.addColorStop(.5,'#060608');bg.addColorStop(1,'#000');g.fillStyle=bg;g.fillRect(0,0,256,256);draw(g);return c;}
+  function soft(g,x,y,w,h,a){var r=g.createRadialGradient(x+w/2,y+h/2,0,x+w/2,y+h/2,Math.max(w,h)/2);r.addColorStop(0,'rgba(255,255,255,'+a+')');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(x-w,y-h,w*3,h*3);}
+  function box(g,x,y,w,h,a){soft(g,x-10,y-10,w+20,h+20,a*.35);g.fillStyle='rgba(255,255,255,'+a+')';g.fillRect(x,y,w,h);}
+  var px=face(function(g){box(g,110,16,22,224,.95);});                 /* tall softbox, right */
+  var nx=face(function(g){box(g,70,80,116,22,.5);});                   /* low strip, left */
+  var py=face(function(g){box(g,20,116,216,24,1);});                   /* bright top light */
+  var ny=face(function(g){});                                          /* dark floor */
+  var pz=face(function(g){box(g,30,34,18,168,.85);box(g,200,136,26,26,.35);});
+  var nz=face(function(g){box(g,100,100,56,56,.25);});
+  var t=new THREE.CubeTexture([px,nx,py,ny,pz,nz]);t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;return t;
+}
+/* ---------- the Obspec gem: Figma's five-piece mark carved from banded violet obsidian ----------
+   Each segment is an extruded shape with chiseled bevels and polygonal arcs (curveSegments kept low on purpose),
+   so the arcs read as crystalline facets. Warm backlight from the upper right, violet fill from the front-left. */
+function seeded(seed){return function(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
+function bandTex(){
+  var c=document.createElement('canvas');c.width=c.height=256;var g=c.getContext('2d'),rnd=seeded(7);
+  g.fillStyle='#110a20';g.fillRect(0,0,256,256);
+  g.save();g.translate(128,128);g.rotate(-0.62);
+  for(var i=-14;i<14;i++){var w=5+Math.floor(rnd()*12);var m=((i%4)+4)%4;g.fillStyle=m===0?'rgba(132,82,235,.42)':m===1?'rgba(60,28,120,.65)':m===2?'rgba(16,8,34,.85)':'rgba(90,50,170,.25)';g.fillRect(-300,i*20,600,w);}
+  g.restore();
+  for(var k=0;k<220;k++){g.fillStyle='rgba(214,190,255,'+(0.12+rnd()*0.4).toFixed(2)+')';g.fillRect(rnd()*256,rnd()*256,1.4,1.4);}
+  var t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(0.05,0.05);t.encoding=THREE.sRGBEncoding;return t;
+}
+/* the five pieces in Figma's 38 × 57 grid, re-centred (X = x-19, Y = 28.5-y) */
+function figmaShapes(){
+  var P=Math.PI,out=[];
+  var a=new THREE.Shape();a.moveTo(0,28.5);a.lineTo(-9.5,28.5);a.absarc(-9.5,19,9.5,P/2,3*P/2,false);a.lineTo(0,9.5);a.closePath();out.push(a);
+  var b=new THREE.Shape();b.moveTo(0,28.5);b.absarc(9.5,19,9.5,P/2,-P/2,true);b.lineTo(0,9.5);b.closePath();out.push(b);
+  var c=new THREE.Shape();c.moveTo(0,9.5);c.lineTo(-9.5,9.5);c.absarc(-9.5,0,9.5,P/2,3*P/2,false);c.lineTo(0,-9.5);c.closePath();out.push(c);
+  var d=new THREE.Shape();d.absarc(9.5,0,9.5,0,2*P,false);out.push(d);
+  var e=new THREE.Shape();e.moveTo(0,-9.5);e.lineTo(-9.5,-9.5);e.absarc(-9.5,-19,9.5,P/2,3*P/2,false);e.absarc(-9.5,-19,9.5,3*P/2,2*P,false);e.lineTo(0,-9.5);e.closePath();out.push(e);
+  return out;
+}
+function makeGem(canvas,px,big){
+  var renderer;try{renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true,antialias:true});}catch(e){return null;}
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(px,px,false);renderer.outputEncoding=THREE.sRGBEncoding;
+  var scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(big?30:26,1,0.1,30);
+  if(big){cam.position.set(-1.6,-0.75,6.4);cam.lookAt(0,-0.25,0);} else {cam.position.set(-0.5,-0.2,5.2);cam.lookAt(0,0,0);}
+  var env=makeEnv(),tex=bandTex();
+  scene.add(new THREE.AmbientLight(0x6a55a8,0.22));
+  var back=new THREE.DirectionalLight(0xffc98a,1.9);back.position.set(3,3.2,-2.6);scene.add(back);       /* warm edge light, upper right, behind */
+  var fill=new THREE.DirectionalLight(0x8f6bff,0.55);fill.position.set(-3.5,-1,3);scene.add(fill);       /* violet fill, front left */
+  var front=new THREE.DirectionalLight(0xffffff,0.3);front.position.set(0.5,1.2,4);scene.add(front);
+  var glow=new THREE.PointLight(0xa678ff,1.3,6);glow.position.set(0.6,0.4,-1.6);scene.add(glow);            /* violet behind the stone: edges glow */
+  var sweep=new THREE.PointLight(0xfff1dc,0.5,7);scene.add(sweep);
+  var group=new THREE.Group();scene.add(group);
+  var tints=[0x2a1560,0x381c78,0x1d1046,0x25154f,0x301a68],shapes=figmaShapes(),k=2.3/57,rnd=seeded(3);
+  shapes.forEach(function(sh,i){
+    var geo=new THREE.ExtrudeGeometry(sh,{depth:7.5,bevelEnabled:true,bevelThickness:2.4,bevelSize:2.1,bevelOffset:-0.4,bevelSegments:2,curveSegments:7});
+    geo.scale(k,k,k);geo.translate(0,0,-7.5*k/2);
+    /* chips and edge wear: tiny jitter on every vertex */
+    var pos=geo.attributes.position;for(var v=0;v<pos.count;v++){pos.setXYZ(v,pos.getX(v)+(rnd()-0.5)*0.012,pos.getY(v)+(rnd()-0.5)*0.012,pos.getZ(v)+(rnd()-0.5)*0.012);}
+    geo.computeVertexNormals();
+    var mat=new THREE.MeshPhysicalMaterial({color:tints[i],map:tex,metalness:0.18,roughness:0.14,clearcoat:1,clearcoatRoughness:0.06,envMap:env,envMapIntensity:0.95,flatShading:true,emissive:0x1b0b3c,emissiveIntensity:0.35,reflectivity:1});
+    var m=new THREE.Mesh(geo,mat);
+    m.position.z=(i%2?1:-1)*0.035*(1+i*0.3);m.rotation.z=(rnd()-0.5)*0.03;m.rotation.x=(rnd()-0.5)*0.06;  /* segments interlock, each set a hair apart */
+    group.add(m);
+  });
+  group.position.y=big?0.12:0.02;
+  var dust=null;
+  if(big){
+    /* polished obsidian plinth: a lathe profile with a soft rounded rim, smooth-shaded, centred under the gem */
+    var prof=[[0,0.2],[1.1,0.2],[1.28,0.17],[1.38,0.1],[1.42,0],[1.42,-0.18],[1.36,-0.24],[0,-0.24]].map(function(q){return new THREE.Vector2(q[0],q[1]);});
+    var pg=new THREE.LatheGeometry(prof,96);pg.computeVertexNormals();
+    var ped=new THREE.Mesh(pg,new THREE.MeshPhysicalMaterial({color:0x0e0d13,roughness:0.28,metalness:0.1,clearcoat:0.7,clearcoatRoughness:0.2,envMap:env,envMapIntensity:0.5}));
+    ped.position.set(0,-1.27,0);scene.add(ped);
+    /* atmospheric dust */
+    var n=70,da=new Float32Array(n*3),r3=seeded(5);for(var z=0;z<n;z++){da[z*3]=(r3()-0.5)*4.6;da[z*3+1]=(r3()-0.5)*4.2;da[z*3+2]=(r3()-0.5)*3-0.5;}
+    var dg=new THREE.BufferGeometry();dg.setAttribute('position',new THREE.BufferAttribute(da,3));
+    var dc=document.createElement('canvas');dc.width=dc.height=32;var dx=dc.getContext('2d');var gr=dx.createRadialGradient(16,16,0,16,16,16);gr.addColorStop(0,'rgba(255,240,220,1)');gr.addColorStop(1,'rgba(255,240,220,0)');dx.fillStyle=gr;dx.fillRect(0,0,32,32);
+    dust=new THREE.Points(dg,new THREE.PointsMaterial({size:0.045,map:new THREE.CanvasTexture(dc),transparent:true,opacity:0.55,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true}));
+    scene.add(dust);
+  }
+  var o={renderer:renderer,scene:scene,cam:cam,group:group,sweep:sweep,dust:dust,px:px,canvas:canvas,rx:big?0.1:0,ry:big?-0.42:-0.3,big:big};
+  stones.push(o);return o;
+}
+var logoStone=makeGem($('logo'),100,false);
+var bigStone=makeGem($('stone'),560,true);
+function sizeBig(){if(!bigStone) return;var w=Math.round(stonewrap.clientWidth)||560;if(w!==bigStone.px){bigStone.px=w;bigStone.renderer.setSize(w,w,false);}}
+addEventListener('resize',sizeBig);sizeBig();
+function tickStones(now){
+  var t=now/1000;
+  stones.forEach(function(o){
+    var big=o===bigStone;
+    if(big&&outro.style.visibility==='hidden') return;
+    var r=o.canvas.getBoundingClientRect();if(r.bottom<0||r.top>vh) return;
+    var mx=fine?((ptrX-(r.left+r.width/2))/Math.max(r.width,240)):0,my=fine?((ptrY-(r.top+r.height/2))/Math.max(r.height,240)):0;
+    var base=big?-0.42:-0.3;
+    var ty=base+(rm?0:Math.sin(t*0.45)*0.16)+clamp(mx)*0.22,tx=(big?0.1:0.02)+(rm?0:Math.sin(t*0.33)*0.06)-clamp(my)*0.16;
+    o.ry+=(ty-o.ry)*0.06;o.rx+=(tx-o.rx)*0.06;
+    o.group.rotation.set(o.rx,o.ry,0.04);
+    o.group.position.y=(big?0.12:0.02)+(rm?0:Math.sin(t*0.8)*(big?0.03:0.015));
+    o.sweep.position.set(Math.cos(t*0.5)*2.6,1.2+Math.sin(t*0.4)*0.9,2.4);
+    if(o.dust&&!rm){o.dust.rotation.y=t*0.03;o.dust.position.y=Math.sin(t*0.25)*0.12;}
+    o.renderer.render(o.scene,o.cam);
+  });
+}
+/* teammates' cursors on the Figma canvas */
+function tickCollab(now,dt){
+  var t=now/1000,k=1-Math.pow(0.05,dt); /* time-based easing: ~95% of the way per second */
+  COLLAB.forEach(function(c){
+    var b=c.base[curState]||c.base[0];
+    var bx=b[0]+(rm?0:Math.sin(t*0.55+c.ph)*22+Math.sin(t*1.7+c.ph)*4),by=b[1]+(rm?0:Math.cos(t*0.42+c.ph)*14+Math.cos(t*1.3+c.ph)*3);
+    c.x+=(bx-c.x)*k;c.y+=(by-c.y)*k;
+    c.el.style.transform='translate('+c.x.toFixed(1)+'px,'+c.y.toFixed(1)+'px)';
+  });
+}
+
+/* ---------- pointer, cursor, buttons ---------- */
+var ptrX=-100,ptrY=-100,cx=-100,cy=-100,hoverLink=false,hoverText='You';
+var fcur=$('fcur'),ftag=$('ftag');
+addEventListener('pointermove',function(e){ptrX=e.clientX;ptrY=e.clientY;},{passive:true});
+document.addEventListener('pointerover',function(e){var t=e.target.closest&&e.target.closest('a,button,[data-magnet]');hoverLink=!!t;if(t) hoverText=t.getAttribute('data-cursor')||'Open';});
+document.addEventListener('pointerout',function(e){var t=e.target.closest&&e.target.closest('a,button,[data-magnet]');if(t&&!(e.relatedTarget&&t.contains(e.relatedTarget))) hoverLink=false;});
+addEventListener('pointerdown',function(){fcur.classList.add('is-down');});
+addEventListener('pointerup',function(){fcur.classList.remove('is-down');});
+[].forEach.call(document.querySelectorAll('.btn'),function(b){
+  function at(e){var r=b.getBoundingClientRect();b.style.setProperty('--x',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');b.style.setProperty('--y',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');}
+  b.addEventListener('pointerenter',function(e){at(e);b.classList.add('is-hover');});
+  b.addEventListener('pointerleave',function(e){at(e);b.classList.remove('is-hover');});
+  b.addEventListener('focus',function(){b.classList.add('is-hover');});b.addEventListener('blur',function(){b.classList.remove('is-hover');});
+});
+var magnets=[].slice.call(document.querySelectorAll('[data-magnet]'));
+function magnetTick(){
+  if(!fine||rm) return;
+  for(var i=0;i<magnets.length;i++){
+    var m=magnets[i],r=m.getBoundingClientRect();if(!r.width) continue;
+    var dx=ptrX-(r.left+r.width/2),dy=ptrY-(r.top+r.height/2),d=Math.hypot(dx,dy),R=Math.max(r.width,r.height)*0.9;
+    if(d<R){var k=(1-d/R)*0.3;m.style.transform='translate('+(dx*k).toFixed(1)+'px,'+(dy*k).toFixed(1)+'px)';m._m=true;}
+    else if(m._m){m.style.transform='';m._m=false;}
+  }
+}
+
+/* ---------- loop ---------- */
+var last=performance.now();
+function frame(now){
+  var dt=Math.max(0,Math.min(0.05,(now-last)/1000));last=now; /* clamped: a frame timestamp can precede script start */
+  prog+=(target-prog)*(rm?1:(1-Math.pow(0.002,dt)));
+  if(Math.abs(target-prog)<0.0005) prog=target;
+  apply(prog);
+  tickStones(now);tickCollab(now,dt);
+  cx+=(ptrX-cx)*0.6;cy+=(ptrY-cy)*0.6;
+  fcur.style.transform='translate3d('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px,0)';
+  setText(ftag,hoverLink?hoverText:'You');
+  magnetTick();
+  requestAnimationFrame(frame);
+}
+fit();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

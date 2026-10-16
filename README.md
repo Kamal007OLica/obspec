@@ -1,4 +1,34 @@
-# Obspec
+<p align="center">
+  <a href="https://kamal007olica.github.io/obspec/"><img src="media/outro.png" alt="Obspec: the Figma mark carved from violet obsidian, on a polished plinth" width="880"></a>
+</p>
+
+<h1 align="center">Obspec</h1>
+<p align="center"><b>Obsidian × Figma Specs.</b> Search your vault from inside Figma, drop notes onto the canvas as Specs, and keep both sides in sync. Nothing leaves your machine.</p>
+<p align="center">
+  <a href="https://kamal007olica.github.io/obspec/">Website</a> ·
+  <a href="#run-it">Run it</a> ·
+  <a href="#local-preview-no-figma-needed">Preview without Figma</a> ·
+  <a href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report">Report a bug</a>
+</p>
+<p align="center">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-8f6bff">
+  <img alt="Figma plugin" src="https://img.shields.io/badge/Figma-plugin-1e1e1e?logo=figma">
+  <img alt="Obsidian" src="https://img.shields.io/badge/Obsidian-vault-7c3aed?logo=obsidian">
+</p>
+
+---
+
+## What it looks like
+
+| Search the vault inside Figma | Drop a note on the canvas |
+| --- | --- |
+| ![Hero: the Obsidian vault and the Figma canvas side by side in one Mac window](media/hero.png) | ![A note card flies from the vault into Figma and lands as a Spec](media/insert.png) |
+
+| Edit in Obsidian, pull in Figma |
+| --- |
+| ![A line typed in Obsidian travels across the thread into the Spec; the plugin shows Note changed and a Pull button](media/pull.png) |
+
+The site at **https://kamal007olica.github.io/obspec/** plays this whole flow as you scroll: six steps, then the stone.
 
 **Obsidian ↔ Figma, both ways.** Search your vault from inside Figma, drop any note onto the canvas as a spec card, link layers to notes, and keep the two in sync — note edits show up in Figma live, and design changes can be sent back into the note.
 
@@ -87,3 +117,15 @@ Links are stored on nodes as plugin data (`obspec:link`) with the note's content
 - `figma.fileKey` is only exposed to private/org plugins; without it the note's `figma_url` is omitted (everything else works).
 - Spec cards are a readable mirror, not a markdown renderer: headings, lists, quotes, code and tables are kept; images become `[image: …]`.
 - The bridge binds to `127.0.0.1` and only allows the Figma plugin origin (`null`), `*.figma.com` and localhost via CORS.
+
+## Website
+
+`site/` is a single static page (OffBit display type, Three.js for the obsidian gem) and deploys to GitHub Pages from `main` through `.github/workflows/pages.yml`. Open `site/index.html` in a browser to work on it; there is no build step.
+
+## Contributing
+
+Issues and pull requests are welcome. For a bug, the fastest route is an issue with the Figma version, OS, and the bridge's console output; or email kr07.work@gmail.com.
+
+## License
+
+[MIT](LICENSE) © 2026 Kamalraaj Senthilkumar. Not affiliated with Figma or Obsidian.
