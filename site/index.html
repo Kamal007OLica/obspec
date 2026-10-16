@@ -329,8 +329,8 @@ html.scrolled .cuebtn .l0{display:none}html.scrolled .cuebtn .l1{display:grid}
 .mcur{position:absolute;left:0;top:0;pointer-events:none;transition:transform 1.1s var(--ease)}
 .mcur svg{width:22px;height:22px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
 .mcur .tag{position:absolute;left:14px;top:16px;font-size:13px;font-weight:600;color:#fff;background:var(--fig-acc);padding:5px 9px;border-radius:7px;white-space:nowrap}
-.mcur.c2,.mcur.c3,.mcur.c4,.mcur.c5{transition:none}
-.mcur.c2 .tag{background:#ff24bd}.mcur.c3 .tag{background:#0fa958}.mcur.c4 .tag{background:#e8850c}.mcur.c5 .tag{background:#00a3bd}
+.mcur.c2,.mcur.c3,.mcur.c4,.mcur.c5,.mcur.c6{transition:none}
+.mcur.c2 .tag{background:#ff24bd}.mcur.c3 .tag{background:#0fa958}.mcur.c4 .tag{background:#e8850c}.mcur.c5 .tag{background:#00a3bd}.mcur.c6 .tag{background:#9747ff}
 
 /* ---------- the teammates' frame: Onboarding v3, drawn step by step as the page scrolls ---------- */
 .mock{position:absolute;left:40px;top:470px;width:210px}
@@ -612,6 +612,7 @@ html.has-cursor .fcur{display:block}
       <div class="mcur c3" id="cur3"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#0fa958" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Manoj</span></div>
       <div class="mcur c4" id="cur4"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#e8850c" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Riya</span></div>
       <div class="mcur c5" id="cur5"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#00a3bd" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Bala</span></div>
+      <div class="mcur c6" id="cur6"><svg viewBox="0 0 24 24"><path d="M5.2 3.1 19.4 11.5l-6.6 1.2-2.9 6.2z" fill="#9747ff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="tag">Jyothi</span></div>
       <div class="tools"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
     </div></div>
       </div></div>
@@ -711,7 +712,8 @@ var COLLAB=[
   {el:$('cur2'),ph:0.8,x:200,y:150,base:[[220,150],[260,170],[720,600],[720,600],[258,438],[720,600],[720,600]]},
   {el:$('cur3'),ph:2.3,x:330,y:260,base:[[400,260],[430,300],[350,62],[350,62],[350,62],[350,62],[350,62]]},
   {el:$('cur4'),ph:4.1,x:150,y:520,base:[[150,520],[120,560],[200,600],[60,600],[130,600],[110,520],[110,520]]},
-  {el:$('cur5'),ph:5.6,x:90,y:590,base:[[90,590],[210,500],[60,480],[200,590],[90,500],[220,560],[220,560]]}
+  {el:$('cur5'),ph:5.6,x:90,y:590,base:[[90,590],[210,500],[60,480],[200,590],[90,500],[220,560],[220,560]]},
+  {el:$('cur6'),ph:1.7,x:500,y:300,base:[[500,300],[480,340],[480,160],[480,210],[480,300],[480,420],[480,420]]}
 ];
 var curState=0;
 var NEWLINE='- Show loyalty points on the summary line';
