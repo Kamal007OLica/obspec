@@ -2,24 +2,54 @@
  * Generates the markdown Obspec writes into Obsidian when a design is pushed.
  * Pure functions — shared by the UI (which does the writing) and tests.
  */
-import type { DesignSnapshot } from './protocol';
+import { obsidianUrl, type DesignSnapshot, type Note } from './protocol';
 
 export const DESIGN_HEADING = 'Design';
 
+/**
+ * The note's "Design" section. Only blocks Figma Specs understands (headings, lists,
+ * quotes, code, dividers) — no tables — so the same .md reads cleanly as a Spec.
+ */
 export function snapshotToMarkdown(s: DesignSnapshot): string {
   const lines: string[] = [];
-  lines.push('| Property | Value |', '| --- | --- |');
-  for (const [k, v] of s.properties) lines.push(`| ${k} | ${v.replace(/\|/g, '\\|')} |`);
+  const row = (k: string, v: string) => lines.push(`- **${k}:** ${v}`);
+  row('Node', `${s.name} · ${s.nodeId}`);
+  row('Page', s.page);
+  row('Size', `${s.width} × ${s.height}`);
+  for (const [k, v] of s.properties) if (k !== 'Type' && k !== 'Size') row(k, v);
+  if (s.texts.length) row('Label', s.texts[0].replace(/\n+/g, ' '));
+  if (s.url) row('Link', s.url);
   if (s.component) {
-    lines.push('', `**Component:** ${s.component.name}`);
+    row('Component', s.component.name);
     const vp = s.component.variantProps;
-    if (vp && Object.keys(vp).length) lines.push(...Object.entries(vp).map(([k, v]) => `- ${k}: ${v}`));
+    if (vp && Object.keys(vp).length) for (const [k, v] of Object.entries(vp)) row(k, v);
   }
-  if (s.texts.length) { lines.push('', '**Copy**'); for (const t of s.texts) lines.push(`- ${t.replace(/\n+/g, ' ')}`); }
+  if (s.texts.length > 1) { lines.push('', '**Copy**'); for (const t of s.texts) lines.push(`- ${t.replace(/\n+/g, ' ')}`); }
   if (s.children.length) { lines.push('', '**Layers**'); for (const c of s.children) lines.push(`- ${c}`); }
   lines.push('', `_Captured from page “${s.page}” · ${formatStamp(s.capturedAt)}_`);
   return lines.join('\n');
 }
+
+/**
+ * A note as a Spec-ready markdown file: drop it on the Figma canvas and Figma turns it
+ * into a native Spec. Frontmatter is folded into a quote line; wikilinks and embeds
+ * become plain text so nothing dangles outside the vault.
+ */
+export function toSpecMarkdown(note: Note, vaultName: string): string {
+  let body = note.body.replace(/\r/g, '');
+  body = body.replace(new RegExp(`^\\s*#\\s+${escapeRe(note.title)}\\s*\\n?`), '');
+  body = body
+    .replace(/!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, (_, t: string) => `(image: ${t.trim()})`)
+    .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?\]\]/g, '$1')
+    .replace(/==(.+?)==/g, '**$1**');
+  const meta: string[] = [`From Obsidian · ${note.path}`];
+  if (note.tags.length) meta.push(note.tags.map((t) => `#${t}`).join(' '));
+  if (vaultName) meta.push(`[Open in Obsidian](${obsidianUrl(vaultName, note.path)})`);
+  return `# ${note.title}\n\n> ${meta.join(' · ')}\n\n${body.trim()}\n\n---\n\n_Synced by Obspec · ${formatStamp(Date.now())}_\n`;
+}
+
+function escapeRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 export function pushFrontmatter(s: DesignSnapshot, fileName: string): Record<string, unknown> {
   return {

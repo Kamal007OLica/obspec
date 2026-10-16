@@ -6,10 +6,10 @@ import './app.css';
 import { BridgeClient, BridgeClientError } from './bridge';
 import { icons, nodeIcon } from './icons';
 import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
-import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown } from '../shared/notegen';
+import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
-  computeSyncState, DEFAULT_SETTINGS, obsidianUrl,
-  type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultEvent, type VaultInfo,
+  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, obsidianSearchUrl, obsidianUrl,
+  type CardStatus, type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
 type Tab = 'search' | 'selection' | 'linked' | 'settings';
@@ -83,7 +83,7 @@ function renderTop(): void {
   const label = state.online ? (state.vault?.name ?? 'Connected') : 'Bridge offline';
   const tabs: Array<[Tab, string, number?]> = [['search', 'Search'], ['selection', 'Selection'], ['linked', 'Linked', state.linked.length]];
   $('top').innerHTML = `
-    <div class="brand">${icons.logo}<span class="wordmark">Obspec</span>
+    <div class="brand">${icons.logo}<span class="wordmark">Obspec</span><span class="ver">v1.0</span>
       <button class="conn ${conn}" data-act="tab" data-arg="settings" title="${esc(state.online ? state.vault?.path ?? '' : state.healthError ?? 'Start the Obspec Bridge')}"><i class="dot"></i><span>${esc(label)}</span></button>
       <button class="icon-btn" data-act="tab" data-arg="settings" aria-label="Settings" title="Settings">${icons.gear}</button>
     </div>
@@ -106,7 +106,7 @@ function renderSearch(): void {
   if (state.searching && !state.results.length) { box.innerHTML = `<div class="skeleton"><div style="width:60%"></div><div style="width:90%"></div><div style="width:40%"></div><div style="width:75%"></div></div>`; return; }
   if (!state.results.length) { box.innerHTML = emptyState(icons.empty, `Nothing for “${esc(state.query)}”`, 'Try fewer words, or filter with tag: and path:.'); return; }
   const terms = state.query.toLowerCase().match(/"([^"]+)"|(\S+)/g)?.map((t) => t.replace(/"/g, '')) ?? [];
-  box.innerHTML = `<div class="section-label">Results<span class="count">${state.total} note${state.total === 1 ? '' : 's'} · ${state.tookMs} ms</span></div>
+  box.innerHTML = `<div class="section-label">Results<span class="count">${state.total} note${state.total === 1 ? '' : 's'} · ${state.tookMs} ms</span><button class="link-btn" data-act="search-obsidian" title="Run this search in Obsidian so the matches light up in your vault">${icons.external} in Obsidian</button></div>
     <ul class="results">${state.results.map((r, i) => resultRow(r, i, terms)).join('')}</ul>`;
   box.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
 }
@@ -161,6 +161,8 @@ function renderNote(): void {
     <div class="actionbar">
       <button class="btn primary" data-act="insert" ${busy('insert') ? 'disabled' : ''}>${busy('insert') ? '<i class="spin"></i>' : icons.card} Insert spec card</button>
       <button class="btn secondary" data-act="link" ${!canLink || busy('link') ? 'disabled' : ''} title="${canLink ? `Link “${esc(state.selection.node!.name)}” to this note` : 'Select exactly one layer in Figma first'}">${icons.link} Link selection</button>
+      <span class="spacer"></span>
+      <button class="icon-btn" data-act="download-spec" title="Save as .md for Figma Specs — drop the file on the canvas to make a native Spec" aria-label="Save as Figma Spec markdown">${icons.download}</button>
     </div>`;
 }
 
@@ -351,6 +353,29 @@ async function completePush(snap: DesignSnapshot): Promise<void> {
   state.busy.delete('push'); render();
 }
 
+/** Keep the chip on each spec-card frame truthful. Only sends when the state actually changes. */
+const sentCardStatus = new Map<string, CardStatus>();
+function syncCardChips(): void {
+  for (const l of state.linked) {
+    if (l.link.kind !== 'spec-card') continue;
+    const hash = state.noteHashes.has(l.link.path) ? (state.noteHashes.get(l.link.path) ?? null) : undefined;
+    const status = cardStatusOf(computeSyncState(l.link, hash, undefined));
+    if (!status || sentCardStatus.get(l.nodeId) === status) continue;
+    sentCardStatus.set(l.nodeId, status);
+    send({ type: 'card-status', nodeId: l.nodeId, status });
+  }
+}
+
+function downloadSpec(note: Note): void {
+  const md = toSpecMarkdown(note, state.settings.vaultName);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+  a.download = `${safeFileName(note.title)}.md`;
+  document.body.appendChild(a); a.click(); a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Saved ${a.download} — drop it on the canvas to make a Figma Spec`, 'success', 5000);
+}
+
 async function refreshHashes(): Promise<void> {
   if (!state.online) return;
   const paths = state.linked.map((l) => l.link.path);
@@ -360,6 +385,7 @@ async function refreshHashes(): Promise<void> {
     state.noteHashes = await bridge.hashes(paths);
     const sel = state.selection.node?.link;
     state.selectionNoteHash = sel ? (state.noteHashes.get(sel.path) ?? null) : undefined;
+    syncCardChips();
   } catch { /* keep stale */ }
   render();
 }
@@ -391,6 +417,8 @@ app.addEventListener('click', (e) => {
     case 'hint': { const h = arg === '"phrase"' ? '"' : arg; state.query = (state.query ? state.query.replace(/\s*$/, ' ') : '') + h; input.value = state.query; input.focus(); scheduleSearch(); render(); break; }
     case 'retry': void checkHealth(); break;
     case 'open-obsidian': send({ type: 'open-url', url: obsidianUrl(state.settings.vaultName, arg) }); break;
+    case 'search-obsidian': send({ type: 'open-url', url: obsidianSearchUrl(state.settings.vaultName, state.query.trim()) }); break;
+    case 'download-spec': if (state.note) downloadSpec(state.note); break;
     case 'insert': if (state.note) void withBusy('insert', async () => { send({ type: 'insert-spec-card', note: state.note!, vaultName: state.settings.vaultName, width: state.settings.cardWidth }); }); break;
     case 'link': if (state.note) void withBusy('link', async () => { send({ type: 'link-selection', note: state.note! }); }); break;
     case 'pick': state.pickFor = { nodeId: arg, name: state.selection.node?.name ?? 'layer' }; state.tab = 'search'; state.note = undefined; render(); input.focus(); break;
@@ -454,9 +482,9 @@ window.addEventListener('message', (e) => {
       break;
     case 'linked': state.linked = m.nodes; void refreshHashes(); render(); break;
     case 'snapshot': void completePush(m.snapshot); break;
-    case 'spec-card-inserted': toast(`Spec card inserted`, 'success'); break;
     case 'linked-ok': toast('Linked', 'success'); if (state.note && !state.pickFor) { state.tab = 'selection'; state.note = undefined; render(); } break;
-    case 'pulled': toast('Pulled latest note', 'success'); break;
+    case 'pulled': toast('Pulled latest note', 'success'); sentCardStatus.set(m.nodeId, 'in-sync'); break;
+    case 'spec-card-inserted': sentCardStatus.set(m.nodeId, 'in-sync'); toast('Spec card inserted', 'success'); break;
     case 'error': toast(m.message, 'error'); state.busy.clear(); pendingPush = undefined; render(); break;
   }
 });
@@ -467,6 +495,7 @@ bridge.onEvent((ev: VaultEvent) => {
   if (ev.type === 'deleted') state.noteHashes.set(ev.path, undefined);
   else state.noteHashes.set(ev.path, ev.hash);
   if (state.selection.node?.link?.path === ev.path) state.selectionNoteHash = ev.type === 'deleted' ? null : ev.hash;
+  syncCardChips();
   if (state.note?.path === ev.path) {
     if (ev.type === 'deleted') { toast('This note was deleted in Obsidian', 'error'); closeNote(); }
     else void bridge.note(ev.path).then((n) => { state.note = n; state.noteUpdatedAt = Date.now(); render(); }).catch(() => {});

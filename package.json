@@ -1,6 +1,6 @@
 {
   "name": "obspec",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Obspec — the Obsidian ↔ Figma bridge. Search your vault from Figma, drop notes onto the canvas as spec cards, and keep design and notes in sync.",
   "type": "module",

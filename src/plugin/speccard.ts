@@ -3,7 +3,7 @@
  * Spec card: a note rendered onto the canvas as an auto-layout frame.
  * Rebuilt in place on "pull" so the node id (and its link) survive.
  */
-import { obsidianUrl, type Note } from '../shared/protocol';
+import { obsidianUrl, type CardStatus, type Note } from '../shared/protocol';
 
 export interface CardOptions { vaultName: string; width?: number }
 
@@ -16,10 +16,16 @@ const C = {
   accent: rgb('#6E56CF'), accentSoft: rgb('#EEEBFB'), code: rgb('#F4F3F8'), divider: rgb('#EEEDF3'),
 };
 
+const STATUS: Record<CardStatus, { label: string; fg: RGB; bg: RGB }> = {
+  'in-sync': { label: 'In sync', fg: rgb('#1F8A4C'), bg: rgb('#E5F6EC') },
+  'note-changed': { label: 'Note changed', fg: rgb('#B45309'), bg: rgb('#FDF1E0') },
+  missing: { label: 'Note missing', fg: rgb('#C62A2A'), bg: rgb('#FDECEC') },
+};
+
 export async function buildSpecCard(note: Note, opts: CardOptions): Promise<FrameNode> {
   await loadFonts();
   const card = figma.createFrame();
-  card.name = `Spec / ${note.title}`;
+  card.name = `Spec · ${note.title}`;
   const vp = figma.viewport.center;
   card.x = Math.round(vp.x - (opts.width ?? 400) / 2);
   card.y = Math.round(vp.y - 160);
@@ -29,7 +35,7 @@ export async function buildSpecCard(note: Note, opts: CardOptions): Promise<Fram
 
 export async function updateSpecCard(card: FrameNode, note: Note, opts: CardOptions): Promise<void> {
   await loadFonts();
-  card.name = `Spec / ${note.title}`;
+  card.name = `Spec · ${note.title}`;
   for (const child of [...card.children]) child.remove();
   await fillCard(card, note, opts);
 }
@@ -50,11 +56,14 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
   card.effects = [{ type: 'DROP_SHADOW', color: { r: 0.11, g: 0.1, b: 0.2, a: 0.08 }, offset: { x: 0, y: 6 }, radius: 18, spread: -4, visible: true, blendMode: 'NORMAL' }];
   card.clipsContent = false;
 
-  // Eyebrow: ● OBSIDIAN · folder
-  const eyebrow = row(card, 'eyebrow', 8);
+  // Header: ● OBSIDIAN · folder ................ [● In sync]
+  const header = row(card, 'header', 8);
+  header.layoutAlign = 'STRETCH'; header.primaryAxisAlignItems = 'SPACE_BETWEEN'; header.counterAxisAlignItems = 'CENTER';
+  const eyebrow = row(header, 'eyebrow', 8);
   const dot = figma.createEllipse(); dot.name = 'dot'; dot.resize(8, 8); dot.fills = [solid(C.accent)]; eyebrow.appendChild(dot);
   eyebrow.counterAxisAlignItems = 'CENTER';
   text(eyebrow, 'source', ['OBSIDIAN', note.folder ? `  ·  ${note.folder}` : ''].join(''), { font: FONT_MED, size: 10, color: C.muted, spacing: 1.2 });
+  statusChip(header, 'in-sync');
 
   // Title
   text(card, 'title', note.title, { font: FONT_SEMI, size: 20, color: C.text, lineHeight: 26, fill: true });
@@ -96,6 +105,35 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
   const link = text(footer, 'open', 'Open in Obsidian ↗', { font: FONT_MED, size: 11, color: C.accent });
   try { link.hyperlink = { type: 'URL', value: obsidianUrl(opts.vaultName, note.path) }; } catch { /* some hosts reject custom schemes */ }
   text(footer, 'meta', `${note.path}  ·  ${note.words} words`, { font: FONT_REG, size: 10, color: C.muted });
+}
+
+/** Status lives on the frame itself, so it reads at a glance without opening the plugin. */
+function statusChip(parent: FrameNode, status: CardStatus): FrameNode {
+  const st = STATUS[status];
+  const chip = figma.createFrame();
+  chip.name = 'status'; chip.layoutMode = 'HORIZONTAL'; chip.itemSpacing = 5; chip.cornerRadius = 999;
+  chip.paddingTop = chip.paddingBottom = 3; chip.paddingLeft = 7; chip.paddingRight = 8;
+  chip.primaryAxisSizingMode = 'AUTO'; chip.counterAxisSizingMode = 'AUTO'; chip.counterAxisAlignItems = 'CENTER';
+  chip.fills = [solid(st.bg)];
+  parent.appendChild(chip);
+  const d = figma.createEllipse(); d.name = 'status-dot'; d.resize(6, 6); d.fills = [solid(st.fg)]; chip.appendChild(d);
+  text(chip, 'status-label', st.label, { font: FONT_MED, size: 10, color: st.fg });
+  return chip;
+}
+
+/** Flip the chip in place (no rebuild), e.g. when the note changes on disk. */
+export async function setCardStatus(card: FrameNode, status: CardStatus): Promise<void> {
+  const header = card.findChild((n) => n.name === 'header' && n.type === 'FRAME') as FrameNode | null;
+  if (!header) return;
+  let chip = header.findChild((n) => n.name === 'status' && n.type === 'FRAME') as FrameNode | null;
+  await loadFonts();
+  if (!chip) { statusChip(header, status); return; }
+  const st = STATUS[status];
+  chip.fills = [solid(st.bg)];
+  const d = chip.findChild((n) => n.name === 'status-dot') as EllipseNode | null;
+  if (d) d.fills = [solid(st.fg)];
+  const label = chip.findChild((n) => n.name === 'status-label') as TextNode | null;
+  if (label) { label.characters = st.label; label.fills = [solid(st.fg)]; }
 }
 
 // ───────────────────────────── helpers ───────────────────────────────────

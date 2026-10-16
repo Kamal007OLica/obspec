@@ -14,7 +14,7 @@ import { search } from './search';
 import { parseFrontmatter, replaceSection, withFrontmatter } from './markdown';
 import type { BridgeError, HealthResponse, PatchNoteRequest, SearchResponse, VaultEvent, WriteNoteRequest, WriteNoteResponse } from '../../src/shared/protocol';
 
-export const VERSION = '0.1.0';
+export const VERSION = '1.0.0';
 
 export interface BridgeOptions { vault: string; port: number; host?: string; token?: string; quiet?: boolean }
 

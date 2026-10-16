@@ -5,7 +5,7 @@
  * The UI (ui.ts) owns everything that touches the network.
  */
 import { DEFAULT_SETTINGS, FILE_KEY, LINK_KEY, type LinkedNodeSummary, type Note, type NoteLinkRecord, type PluginToUi, type SelectionSummary, type Settings, type UiToPlugin } from '../shared/protocol';
-import { buildSpecCard, updateSpecCard } from './speccard';
+import { buildSpecCard, setCardStatus, updateSpecCard } from './speccard';
 import { designHashOf, snapshotNode } from './snapshot';
 
 const UI_SIZE = { width: 380, height: 560 };
@@ -136,6 +136,11 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
         post({ type: 'pulled', nodeId: n.id });
         await pushSelection();
         return pushLinked();
+      }
+      case 'card-status': {
+        const n = await figma.getNodeByIdAsync(msg.nodeId);
+        if (n && !n.removed && n.type === 'FRAME') await setCardStatus(n, msg.status);
+        return;
       }
       case 'snapshot': {
         const n = await figma.getNodeByIdAsync(msg.nodeId);

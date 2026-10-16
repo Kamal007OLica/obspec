@@ -33,6 +33,10 @@ html.dark .status.on { background: rgba(76,205,132,.14); color: #4ccd84; } html.
 .node .badge.card { background: var(--accent); }
 .node.spec { max-width: 400px; min-width: 320px; padding: 24px; border-radius: 14px; border: 1px solid #e7e5ee; box-shadow: 0 6px 18px -4px rgba(28,27,34,.12); color: #1c1b22; background: #fff; }
 .node.spec.selected { border-color: var(--sel); }
+.spec .hdr { display: flex; justify-content: space-between; align-items: center; }
+.spec .st { font-size: 10px; font-weight: 500; padding: 3px 8px 3px 7px; border-radius: 999px; display: inline-flex; gap: 5px; align-items: center; }
+.spec .st::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.spec .st.in-sync { color: #1f8a4c; background: #e5f6ec; } .spec .st.note-changed { color: #b45309; background: #fdf1e0; } .spec .st.missing { color: #c62a2a; background: #fdecec; }
 .spec .eyebrow { display: flex; gap: 8px; align-items: center; font-size: 10px; letter-spacing: 1.2px; color: #6f6d7a; font-weight: 500; }
 .spec .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #6e56cf; }
 .spec .title { font-size: 20px; font-weight: 600; line-height: 26px; margin: 12px 0; }

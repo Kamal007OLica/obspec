@@ -1,7 +1,7 @@
 const svg = (body: string, vb = '0 0 16 16') => `<svg viewBox="${vb}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 export const icons = {
-  logo: `<svg class="logo" viewBox="0 0 20 20" aria-hidden="true"><defs><linearGradient id="obg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B74FF"/><stop offset="1" stop-color="#5B3FD6"/></linearGradient></defs><rect width="20" height="20" rx="6" fill="url(#obg)"/><path d="M6 6.5h8M6 10h5.5M6 13.5h7" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/><circle cx="14.5" cy="13.5" r="1.4" fill="#fff"/></svg>`,
+  logo: `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0b0b0e"/><g transform="translate(17 7.5) scale(.79)"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#4a2a93"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#2d1a5e"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" fill="#5a35ad"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#3b2278"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#33206b"/><path d="M19 0l9.5 0 0 9.5-9.5 9.5z" fill="#8a66d8" opacity=".55"/><path d="M28.5 19l-5 4 0 9.5 7-3.5z" fill="#9f7ff0" opacity=".45"/><path d="M0 9.5L9.5 0 19 0 5 14z" fill="#6a48b8" opacity=".4"/><path d="M9.5 38L19 38 19 47.5 4 48z" fill="#6a48b8" opacity=".35"/><path d="M0 38q19 -2 38 -9.5" fill="none" stroke="#c8b4ff" stroke-width=".8" opacity=".5"/></g></svg>`,
   search: svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>'),
   back: svg('<path d="M10 3 5 8l5 5"/>'),
   gear: svg('<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/>'),
@@ -23,6 +23,7 @@ export const icons = {
   wifiOff: svg('<path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0M7 11.5a2 2 0 0 1 2 0M2 2l12 12"/>'),
   empty: svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3M5.5 7h3"/>'),
   select: svg('<path d="M3 3l4.5 10 1.5-4 4-1.5z"/>'),
+  download: svg('<path d="M8 2.5v7M5 7l3 3 3-3M3 12.5h10"/>'),
   close: svg('<path d="m4 4 8 8M12 4l-8 8"/>'),
 };
 

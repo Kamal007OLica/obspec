@@ -48,7 +48,7 @@ test('PUT creates, PATCH merges frontmatter + section, conflicts on stale hash',
   assert.equal(created.created, true);
   const patch = await fetch(url + '/note', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: 'Figma/New.md', frontmatter: { figma_node: '1:2' }, section: { heading: 'Design', markdown: '| a | b |' }, ifHash: created.note.hash }) }).then((r) => r.json() as Promise<any>);
   assert.equal(patch.note.frontmatter.figma_node, '1:2');
-  assert.match(patch.note.body, /## Design\n\n\| a \| b \|/);
+  assert.match(patch.note.body, /## Design\n\n\| a \| b \|/); // PATCH stores whatever markdown it is given
   const onDisk = await readFile(path.join(dir, 'Figma/New.md'), 'utf8');
   assert.match(onDisk, /^---\nfigma_node: "1:2"\n---\n# New/);
   const stale = await fetch(url + '/note', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: 'Figma/New.md', frontmatter: { x: 1 }, ifHash: created.note.hash }) });

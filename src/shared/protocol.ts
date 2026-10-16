@@ -129,6 +129,15 @@ export const FILE_KEY = 'obspec:fileKey';
 export const PLUGIN_NAMESPACE = 'obspec';
 
 export type SyncState = 'in-sync' | 'note-changed' | 'design-changed' | 'both-changed' | 'missing' | 'unknown';
+/** The three states a spec card can show on its own frame. */
+export type CardStatus = 'in-sync' | 'note-changed' | 'missing';
+
+export function cardStatusOf(state: SyncState): CardStatus | undefined {
+  if (state === 'in-sync' || state === 'design-changed') return 'in-sync';
+  if (state === 'note-changed' || state === 'both-changed') return 'note-changed';
+  if (state === 'missing') return 'missing';
+  return undefined;
+}
 
 export interface LinkedNodeSummary {
   nodeId: string;
@@ -212,6 +221,7 @@ export type UiToPlugin =
   | { type: 'link-selection'; note: Note }
   | { type: 'unlink'; nodeId: string }
   | { type: 'pull'; nodeId: string; note: Note; vaultName: string }
+  | { type: 'card-status'; nodeId: string; status: CardStatus }
   | { type: 'snapshot'; nodeId: string }
   | { type: 'mark-pushed'; nodeId: string; path: string; note: Note; designHash: string }
   | { type: 'select-node'; nodeId: string; pageId?: string }
@@ -254,6 +264,10 @@ export function computeSyncState(link: NoteLinkRecord | undefined, noteHash: str
   if (noteChanged) return 'note-changed';
   if (designChanged) return 'design-changed';
   return 'in-sync';
+}
+
+export function obsidianSearchUrl(vaultName: string, query: string): string {
+  return `obsidian://search?vault=${encodeURIComponent(vaultName)}&query=${encodeURIComponent(query)}`;
 }
 
 export function obsidianUrl(vaultName: string, path: string): string {

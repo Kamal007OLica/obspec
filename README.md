@@ -45,7 +45,9 @@ Figma plugin (UI + sandbox)  ⇄  Obspec Bridge (localhost:27123)  ⇄  your Obs
 | **Search** | grep-style search over every note: title, path, tags, body. Snippets with highlights, `tag:` `path:` `"phrase"` `-exclude` filters, keyboard-driven. | Search tab |
 | **Preview** | rendered markdown, wikilinks (clickable), backlinks, tags, open in Obsidian. | tap a result |
 | **Insert / Link** | *Insert spec card* renders the note as a clean auto-layout frame; *Link selection* attaches a note to any layer. | note view |
-| **Two-way sync** | status per linked layer: In sync · Note changed · Design changed. *Pull* rebuilds the card / marks the note read. *Send to Obsidian* writes size, fills, copy, component props and a Figma deep link into the note's `## Design` section (creating the note if needed). | Selection & Linked tabs |
+| **Two-way sync** | status per linked layer: In sync · Note changed · Design changed — and the status chip sits on the spec card frame itself, updated live. *Pull* rebuilds the card / marks the note read. *Send to Obsidian* writes node, size, fill, label and a Figma deep link into the note's `## Design` section (creating the note if needed). | Selection & Linked tabs, the frame |
+| **Figma Specs** | *Save as .md for Figma Specs* exports any note as a Spec-ready markdown file; drop it on the canvas and Figma turns it into a native Spec. Everything Obspec writes uses only the blocks Specs understand. | note view (↓ icon) |
+| **In Obsidian** | *in Obsidian* next to the results runs the same search inside Obsidian, so the matching notes light up in your vault. | Search tab |
 
 ## Run it
 
@@ -111,6 +113,14 @@ tests/                 node:test suites (run via scripts/test.mjs)
 | GET | `/events` | Server-Sent Events: `created` / `changed` / `deleted` |
 
 Links are stored on nodes as plugin data (`obspec:link`) with the note's content hash and the layer's design fingerprint, which is how sync state is computed without any server-side state.
+
+## Figma Specs
+
+Figma Specs are markdown-based, and Figma makes a native Spec out of any `.md` file dropped on the canvas. There is no Plugin API for creating Specs directly, so Obspec meets Specs halfway:
+
+- **Note → Spec:** open a note, press the ↓ icon in the action bar. You get `<Title>.md` with the note's body, a source line (path, tags, `obsidian://` link) and no dangling wikilinks or embeds. Drop it on the canvas.
+- **Spec card:** the auto-layout frame Obspec inserts is a readable mirror that stays linked and shows its sync status on the frame. Use it when you want the note to live *inside* your design, next to the frames it describes.
+- **What we write:** the `## Design` section and generated notes use only headings, lists, quotes, code and dividers — the block set Specs documents — so the same file reads cleanly in Obsidian and in Figma.
 
 ## Notes & limits
 

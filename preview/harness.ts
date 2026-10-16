@@ -2,7 +2,7 @@
  * Preview harness: a mock Figma sandbox that speaks the real Obspec protocol
  * to the real plugin UI, plus scripted use-case emulations.
  */
-import { DEFAULT_SETTINGS, fnv1a, type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteLinkRecord, type PluginToUi, type SelectionSummary, type Settings, type UiToPlugin, type VaultEvent } from '../src/shared/protocol';
+import { DEFAULT_SETTINGS, fnv1a, type CardStatus, type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteLinkRecord, type PluginToUi, type SelectionSummary, type Settings, type UiToPlugin, type VaultEvent } from '../src/shared/protocol';
 import { toBlocks } from '../src/plugin/speccard';
 
 const BRIDGE = 'http://127.0.0.1:27123';
@@ -13,7 +13,7 @@ const FILE_NAME = 'Checkout — Oct 2026';
 interface MockNode {
   id: string; type: string; name: string; width: number; height: number; pageId: string;
   pluginData: Record<string, string>; texts: string[]; children: string[]; fills: string[];
-  kind?: 'spec-card'; note?: Note; preview?: Array<['t' | 'b' | 'i', string]>;
+  kind?: 'spec-card'; note?: Note; preview?: Array<['t' | 'b' | 'i', string]>; status?: CardStatus;
 }
 interface MockPage { id: string; name: string; nodes: MockNode[] }
 
@@ -93,7 +93,7 @@ window.addEventListener('message', (e) => {
       case 'get-linked': pushLinked(); break;
       case 'insert-spec-card': {
         const id = `${++idSeq}:1`;
-        const n: MockNode = { id, pageId: currentPageId, type: 'FRAME', name: `Spec / ${m.note.title}`, width: m.width, height: 0, texts: [m.note.title], children: ['eyebrow', 'title', 'body', 'footer'], fills: ['#FFFFFF'], pluginData: {}, kind: 'spec-card', note: m.note };
+        const n: MockNode = { id, pageId: currentPageId, type: 'FRAME', name: `Spec · ${m.note.title}`, width: m.width, height: 520, texts: [m.note.title], children: ['eyebrow', 'title', 'body', 'footer'], fills: ['#FFFFFF'], pluginData: {}, kind: 'spec-card', note: m.note, status: 'in-sync' };
         page().nodes.push(n);
         writeLink(n, { v: 1, path: m.note.path, noteHash: m.note.hash, noteMtime: m.note.mtime, kind: 'spec-card', linkedAt: Date.now(), syncedAt: Date.now() });
         select([id]); post({ type: 'spec-card-inserted', nodeId: id }); pushLinked(); notify(`Inserted “${m.note.title}”`); break;
@@ -108,10 +108,11 @@ window.addEventListener('message', (e) => {
       case 'pull': {
         const n = findNode(m.nodeId); if (!n) throw new Error('Layer no longer exists');
         const link = readLink(n); if (!link) throw new Error('Layer is not linked');
-        if (n.kind === 'spec-card') { n.note = m.note; n.name = `Spec / ${m.note.title}`; n.texts = [m.note.title]; }
+        if (n.kind === 'spec-card') { n.note = m.note; n.name = `Spec · ${m.note.title}`; n.texts = [m.note.title]; n.status = 'in-sync'; }
         writeLink(n, { ...link, noteHash: m.note.hash, noteMtime: m.note.mtime, designHash: designHash(n), syncedAt: Date.now() });
         renderCanvas(); post({ type: 'pulled', nodeId: n.id }); pushSelection(); pushLinked(); notify(`Pulled “${m.note.title}”`); break;
       }
+      case 'card-status': { const n = findNode(m.nodeId); if (n && n.kind === 'spec-card') { n.status = m.status; renderCanvas(); log(`card chip → ${m.status}`, 'sandbox'); } break; }
       case 'snapshot': { const n = findNode(m.nodeId); if (!n) throw new Error('Layer no longer exists'); post({ type: 'snapshot', snapshot: snapshot(n) }); break; }
       case 'mark-pushed': {
         const n = findNode(m.nodeId); if (!n) throw new Error('Layer no longer exists');
@@ -140,7 +141,7 @@ function renderCanvas(): void {
     if (n.kind === 'spec-card' && n.note) {
       const blocks = toBlocks(n.note.body, 40, n.note.title);
       return `<div class="node spec${sel}" id="node-${n.id}" data-id="${n.id}">${link ? '<span class="badge card">spec card</span>' : ''}
-        <div class="eyebrow"><i></i>OBSIDIAN${n.note.folder ? `  ·  ${esc(n.note.folder)}` : ''}</div>
+        <div class="hdr"><div class="eyebrow"><i></i>OBSIDIAN${n.note.folder ? `  ·  ${esc(n.note.folder)}` : ''}</div><span class="st ${n.status ?? 'in-sync'}">${{ 'in-sync': 'In sync', 'note-changed': 'Note changed', missing: 'Note missing' }[n.status ?? 'in-sync']}</span></div>
         <div class="title">${esc(n.note.title)}</div>
         ${n.note.tags.length ? `<div class="tags">${n.note.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
         <div class="div"></div>
@@ -232,6 +233,7 @@ async function typeInto(sel: string, text: string): Promise<void> {
 }
 async function click(sel: string, pred?: (el: HTMLElement) => boolean): Promise<void> { const el = await waitFor<HTMLElement>(sel, pred); el.click(); await sleep(250); }
 const tab = (t: string) => click(`.tab[data-arg="${t}"]`);
+async function waitCanvas(pred: () => boolean, timeout = 8000): Promise<void> { const t0 = Date.now(); while (!pred()) { if (Date.now() - t0 > timeout) throw new Error('Timed out waiting for canvas state'); await sleep(60); } }
 const pill = (state: string) => waitFor('.pill', (el) => el.classList.contains(state), 10000);
 
 interface Scenario { title: string; detail: string; run: () => Promise<void> }
@@ -262,16 +264,21 @@ const scenarios: Scenario[] = [
     await sleep(500);
   } },
   { title: 'Edit the note in Obsidian → pull into Figma', detail: 'A line is appended to the linked note on disk. Obspec sees “Note changed” live; “Pull” brings it in.', run: async () => {
-    let n = selection[0] ? findNode(selection[0]) : undefined;
-    if (!n || !readLink(n)) { const card = pages.flatMap((p) => p.nodes).find((x) => readLink(x)); if (!card) await scenarios[0].run(); n = pages.flatMap((p) => p.nodes).find((x) => readLink(x))!; select([n.id]); }
+    // Prefer a spec card so the rebuild is visible on the canvas; fall back to any linked layer.
+    let n = pages.flatMap((p) => p.nodes).find((x) => x.kind === 'spec-card' && readLink(x));
+    if (!n) n = selection[0] ? findNode(selection[0]) : undefined;
+    if (!n || !readLink(n)) { await scenarios[0].run(); n = pages.flatMap((p) => p.nodes).find((x) => readLink(x))!; }
+    select([n.id]);
     await tab('selection');
     const link = readLink(n)!;
     await showObsidian(link.path);
     await sleep(600);
     await editInObsidian(link.path, `\n## From Obsidian\n- [ ] Added at ${new Date().toLocaleTimeString()}: show loyalty points on the summary\n`);
     await pill('note-changed');
+    if (n.kind === 'spec-card') await waitCanvas(() => n!.status === 'note-changed');
     await sleep(900);
     await click('[data-act="pull"]');
+    if (n.kind === 'spec-card') await waitCanvas(() => n!.status === 'in-sync');
     await pill('in-sync');
     await sleep(400);
   } },
