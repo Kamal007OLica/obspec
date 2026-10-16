@@ -10,7 +10,7 @@
 <meta property="og:description" content="Two-way sync between Obsidian notes and Figma Specs. Nothing leaves your machine.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0b0b0e">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0e'/%3E%3Cpath d='M32 6l17 12-4 30-13 10-15-7-7-30z' fill='%23232330'/%3E%3Cg transform='translate(22.5 18) scale(.5)'%3E%3Cpath d='M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z' fill='%231ABCFE'/%3E%3Cpath d='M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z' fill='%230ACF83'/%3E%3Cpath d='M19 0v19h9.5a9.5 9.5 0 1 0 0-19z' fill='%23FF7262'/%3E%3Cpath d='M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z' fill='%23F24E1E'/%3E%3Cpath d='M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z' fill='%23A259FF'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0e'/%3E%3Cg transform='translate%2817 7.5%29 scale%28.79%29'%3E%3Cpath d='M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z' fill='%234a2a93'/%3E%3Cpath d='M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z' fill='%232d1a5e'/%3E%3Cpath d='M19 0v19h9.5a9.5 9.5 0 1 0 0-19z' fill='%235a35ad'/%3E%3Cpath d='M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z' fill='%233b2278'/%3E%3Cpath d='M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z' fill='%2333206b'/%3E%3Cpath d='M19 0l9.5 0 0 9.5-9.5 9.5z' fill='%238a66d8' opacity='.55'/%3E%3Cpath d='M28.5 19l-5 4 0 9.5 7-3.5z' fill='%239f7ff0' opacity='.45'/%3E%3Cpath d='M0 9.5L9.5 0 19 0 5 14z' fill='%236a48b8' opacity='.4'/%3E%3Cpath d='M9.5 38L19 38 19 47.5 4 48z' fill='%236a48b8' opacity='.35'/%3E%3Cpath d='M0 38q19 -2 38 -9.5' fill='none' stroke='%23c8b4ff' stroke-width='.8' opacity='.5'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 /* Layout: one fixed stage for the whole page. A macOS window holds two equal screens (Obsidian left, Figma
    right); scrolling scrubs six key states of the plugin's flow, then a seventh state parallaxes the window
@@ -29,8 +29,8 @@
   --display:"OffBit","SF Mono",Menlo,monospace;--dot:"OffBit Dot","OffBit","SF Mono",Menlo,monospace;
   --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
   --ease:cubic-bezier(.22,.8,.2,1);
-  --gutter:max(84px,env(safe-area-inset-left,0px));--gutter-r:max(84px,env(safe-area-inset-right,0px));--stage-x:0px;--stage-y:10px;
-  --top-h:72px;--cap-h:168px;--cue-h:84px;--dock-h:48px;--ban-h:52px;
+  --gutter:max(84px,env(safe-area-inset-left,0px));--gutter-r:max(84px,env(safe-area-inset-right,0px));--stage-x:0px;--stage-y:2px;
+  --top-h:72px;--cap-h:146px;--cue-h:84px;--dock-h:48px;--ban-h:52px;
 }
 html.no-ban{--ban-h:0px}
 *{box-sizing:border-box}
@@ -407,7 +407,7 @@ html.has-cursor .fcur{display:block}
 
 /* ---------- responsive ---------- */
 @media (max-width:900px){
-  :root{--cap-h:150px;--top-h:60px;--cue-h:44px;--stage-y:6px}
+  :root{--cap-h:138px;--top-h:60px;--cue-h:44px;--stage-y:2px}
   .brand .word{font-size:22px}.brand canvas{width:40px;height:40px}.brand .sub{display:none}
   .pill span{display:none}.pill{padding:0 10px}
   .award{position:static;transform:none;gap:3px;height:38px;padding:0 10px}.award .laurel{width:18px;height:30px}.award b{font-size:11px}.award small{display:none}.award .stars svg,.award .stars svg:nth-child(3){width:7px;height:7px}
