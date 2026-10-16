@@ -30,7 +30,7 @@
   --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
   --ease:cubic-bezier(.22,.8,.2,1);
   --gutter:max(84px,env(safe-area-inset-left,0px));--gutter-r:max(84px,env(safe-area-inset-right,0px));--stage-x:0px;--stage-y:10px;
-  --top-h:72px;--cap-h:148px;--cue-h:84px;--dock-h:48px;--ban-h:52px;
+  --top-h:72px;--cap-h:168px;--cue-h:84px;--dock-h:48px;--ban-h:52px;
 }
 html.no-ban{--ban-h:0px}
 *{box-sizing:border-box}
@@ -114,7 +114,7 @@ html.no-ban .ban .timer{animation:none}
 
 /* ---------- message band ---------- */
 .caps{position:fixed;left:0;right:0;top:calc(var(--ban-h) + var(--top-h) + env(safe-area-inset-top,0px));height:var(--cap-h);z-index:5;pointer-events:none;
-  padding:6px var(--gutter-r) 0 var(--gutter);display:grid;grid-template-columns:1fr auto;align-items:start;gap:24px}
+  padding:34px var(--gutter-r) 0 var(--gutter);display:grid;grid-template-columns:1fr auto;align-items:start;gap:24px}
 .cap{grid-column:1;grid-row:1;max-width:860px;opacity:0;transform:translateY(10px);transition:opacity .45s var(--ease),transform .55s var(--ease);visibility:hidden}
 .cap.on{opacity:1;transform:none;visibility:visible;transition-delay:.05s}
 .cap h2{margin:0 0 8px;font-size:clamp(24px,2.5vw,38px);color:var(--text);text-wrap:balance}
@@ -407,13 +407,13 @@ html.has-cursor .fcur{display:block}
 
 /* ---------- responsive ---------- */
 @media (max-width:900px){
-  :root{--cap-h:136px;--top-h:60px;--cue-h:44px;--stage-y:6px}
+  :root{--cap-h:150px;--top-h:60px;--cue-h:44px;--stage-y:6px}
   .brand .word{font-size:22px}.brand canvas{width:40px;height:40px}.brand .sub{display:none}
   .pill span{display:none}.pill{padding:0 10px}
   .award{position:static;transform:none;gap:3px;height:38px;padding:0 10px}.award .laurel{width:18px;height:30px}.award b{font-size:11px}.award small{display:none}.award .stars svg,.award .stars svg:nth-child(3){width:7px;height:7px}
   .top .btn-ghost{display:none}
   .top .btn{padding:0 12px}.top .btn .t{display:none}.top .btn{gap:0}
-  .caps{grid-template-columns:1fr;padding-top:4px}
+  .caps{grid-template-columns:1fr;padding-top:18px}
   .counter{grid-column:1;grid-row:2;margin-top:6px;font-size:16px}.counter .bar{width:70px}.counter small{display:none}
   .cap h2{font-size:clamp(22px,6vw,30px);margin-bottom:6px}.cap p{font-size:13px}
   :root{--ban-h:44px;--gutter:max(16px,env(safe-area-inset-left,0px));--gutter-r:max(16px,env(safe-area-inset-right,0px))}
