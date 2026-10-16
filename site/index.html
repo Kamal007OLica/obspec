@@ -10,6 +10,27 @@
 <meta property="og:description" content="Two-way sync between Obsidian notes and Figma Specs. Nothing leaves your machine.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0b0b0e">
+<!-- PostHog: product analytics, CTA events and session replay for the Obspec site.
+     Public project token (write-only). Capturing is skipped on localhost unless ?ph=debug is present. -->
+<script>
+!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],Object.defineProperty(u,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e}}),Object.defineProperty(u.people,"toString",{configurable:!0,enumerable:!0,writable:!0,value:function(){return u.toString(1)+".people (stub)"}}),o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+(function(){
+  var local=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  var debug=/[?&]ph=debug\b/.test(location.search);
+  var cfg={
+    api_host:'https://us.i.posthog.com',
+    defaults:'2026-05-30',
+    autocapture:true,                 /* page views, clicks and engagement on every element */
+    capture_pageleave:true,           /* time on page + scroll depth */
+    session_recording:{maskAllInputs:true,recordCrossOriginIframes:false},
+    opt_out_capturing_by_default:local&&!debug
+  };
+  if(debug){cfg.debug=true;cfg.before_send=function(ev){(window.__phEvents=window.__phEvents||[]).push(ev&&ev.event);return ev;};}
+  posthog.init('phc_rG6Tf5nUitR2hXW832HsSLm7qtst6VQ2db7AwUQ66vGp',cfg);
+  posthog.register({site:'obspec',site_version:'1.0'});
+})();
+</script>
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0e'/%3E%3Cg transform='translate%2817 7.5%29 scale%28.79%29'%3E%3Cpath d='M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z' fill='%234a2a93'/%3E%3Cpath d='M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z' fill='%232d1a5e'/%3E%3Cpath d='M19 0v19h9.5a9.5 9.5 0 1 0 0-19z' fill='%235a35ad'/%3E%3Cpath d='M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z' fill='%233b2278'/%3E%3Cpath d='M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z' fill='%2333206b'/%3E%3Cpath d='M19 0l9.5 0 0 9.5-9.5 9.5z' fill='%238a66d8' opacity='.55'/%3E%3Cpath d='M28.5 19l-5 4 0 9.5 7-3.5z' fill='%239f7ff0' opacity='.45'/%3E%3Cpath d='M0 9.5L9.5 0 19 0 5 14z' fill='%236a48b8' opacity='.4'/%3E%3Cpath d='M9.5 38L19 38 19 47.5 4 48z' fill='%236a48b8' opacity='.35'/%3E%3Cpath d='M0 38q19 -2 38 -9.5' fill='none' stroke='%23c8b4ff' stroke-width='.8' opacity='.5'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 /* Layout: one fixed stage for the whole page. A macOS window holds two equal screens (Obsidian left, Figma
@@ -461,7 +482,7 @@ html.has-cursor .fcur{display:block}
   <span class="new">NEW</span>
   <svg class="fmk" aria-hidden="true"><use href="#fm"/></svg>
   <span class="msg"><b>Figma introduced Specs.</b> <span class="more">Obspec keeps your Obsidian notes in sync with them.</span></span>
-  <a class="cta" href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read">Read Figma's introduction ↗</a>
+  <a data-cta="read-figma-intro" data-cta-location="banner" class="cta" href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read">Read Figma's introduction ↗</a>
   <span class="timer" aria-hidden="true"></span>
   <button class="x" id="banx" type="button" aria-label="Dismiss announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
@@ -474,8 +495,8 @@ html.has-cursor .fcur{display:block}
     <svg class="laurel flip" aria-hidden="true"><use href="#laurel"/></svg>
   </div>
   <div class="top-right">
-    <a class="btn btn-ghost" href="https://github.com/Kamal007OLica/obspec" target="_blank" rel="noopener" data-cursor="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.9 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="t">Contribute</span></a>
-    <a class="btn" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin</span></a>
+    <a data-cta="contribute" data-cta-location="header" class="btn btn-ghost" href="https://github.com/Kamal007OLica/obspec" target="_blank" rel="noopener" data-cursor="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.9 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="t">Contribute</span></a>
+    <a data-cta="get-plugin" data-cta-location="header" class="btn" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin</span></a>
   </div>
 </header>
 
@@ -636,8 +657,8 @@ html.has-cursor .fcur{display:block}
       <h2 class="d">Obspec<small>Two way sync between Obsidian and Figma Specs</small></h2>
       <p class="lede">Search all your Obsidian notes inside your Figma canvas. Insert them as Specs. Keep both sides in sync, locally. Every note stays a plain .md file, the same format Figma Specs now reads.</p>
       <div class="ctas">
-        <a class="btn btn-lg" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin on Figma</span></a>
-        <a class="btn btn-ghost btn-lg" href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email">
+        <a data-cta="get-plugin" data-cta-location="outro" class="btn btn-lg" href="https://www.figma.com/community/search?resource_type=plugins&query=obspec" target="_blank" rel="noopener" data-cursor="Figma"><svg class="fm"><use href="#fm"/></svg><span class="t">Get the plugin on Figma</span></a>
+        <a data-cta="report-bug" data-cta-location="outro" class="btn btn-ghost btn-lg" href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
           <span class="t">Report a bug</span>
         </a>
@@ -647,12 +668,12 @@ html.has-cursor .fcur{display:block}
         <div>
           <b>Kamalraaj Senthilkumar</b><span>Designer who builds. Obspec, Uki AI, ZenMode OS.</span>
           <div class="links">
-            <a href="mailto:kr07.work@gmail.com" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</a>
-            <a href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg>LinkedIn</a>
+            <a data-cta="email" data-cta-location="author" href="mailto:kr07.work@gmail.com" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</a>
+            <a data-cta="linkedin" data-cta-location="author" href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg>LinkedIn</a>
           </div>
         </div>
       </div>
-      <div class="credit"><span>© 2026 Kamalraaj Senthilkumar</span><span>Bugs and support: <a href="mailto:kr07.work@gmail.com">kr07.work@gmail.com</a></span><a href="https://help.figma.com/hc/en-us/articles/44049066011671" target="_blank" rel="noopener">Get started with Figma Specs</a><span>Open source, MIT</span><span>Not affiliated with Figma or Obsidian</span><span>Type: OffBit by Power Type</span></div>
+      <div class="credit"><span>© 2026 Kamalraaj Senthilkumar</span><span>Bugs and support: <a data-cta="email" data-cta-location="footer" href="mailto:kr07.work@gmail.com">kr07.work@gmail.com</a></span><a data-cta="figma-specs-help" data-cta-location="footer" href="https://help.figma.com/hc/en-us/articles/44049066011671" target="_blank" rel="noopener">Get started with Figma Specs</a><span>Open source, MIT</span><span>Not affiliated with Figma or Obsidian</span><span>Type: OffBit by Power Type</span></div>
     </div>
   </div>
 </div>
@@ -670,13 +691,13 @@ html.has-cursor .fcur{display:block}
 
 <div class="dock">
   <div class="g">
-    <a class="p" href="https://obsidian.md/download" target="_blank" rel="noopener" data-cursor="Download"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.2 2.3 9.1 6.6a2 2 0 0 0-.7 1.1L6.6 15l-2.3 2.9a1 1 0 0 0 .1 1.3l3.9 3.6a1 1 0 0 0 1.5-.2l1.6-2.4 4.6 1.4a1 1 0 0 0 1.2-.6l2.9-7.8a1 1 0 0 0-.1-.9L15.7 2.5a1 1 0 0 0-1.5-.2z"/></svg><span>Download Obsidian</span></a>
-    <a href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read"><svg><use href="#fm"/></svg><span>Figma Specs</span></a>
+    <a data-cta="download-obsidian" data-cta-location="dock" class="p" href="https://obsidian.md/download" target="_blank" rel="noopener" data-cursor="Download"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.2 2.3 9.1 6.6a2 2 0 0 0-.7 1.1L6.6 15l-2.3 2.9a1 1 0 0 0 .1 1.3l3.9 3.6a1 1 0 0 0 1.5-.2l1.6-2.4 4.6 1.4a1 1 0 0 0 1.2-.6l2.9-7.8a1 1 0 0 0-.1-.9L15.7 2.5a1 1 0 0 0-1.5-.2z"/></svg><span>Download Obsidian</span></a>
+    <a data-cta="read-figma-intro" data-cta-location="dock" href="https://www.figma.com/blog/introducing-figma-specs/" target="_blank" rel="noopener" data-cursor="Read"><svg><use href="#fm"/></svg><span>Figma Specs</span></a>
   </div>
   <div class="mid" id="dockmid">Obsidian to Figma and back</div>
   <div class="g">
-    <a href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Report a bug</span></a>
-    <a href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg><span>LinkedIn</span></a>
+    <a data-cta="report-bug" data-cta-location="dock" href="mailto:kr07.work@gmail.com?subject=Obspec%20bug%20report" data-cursor="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Report a bug</span></a>
+    <a data-cta="linkedin" data-cta-location="dock" href="https://www.linkedin.com/in/kamalraaj07" target="_blank" rel="noopener" data-cursor="Connect"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 2H3.6A1.6 1.6 0 0 0 2 3.6v16.8A1.6 1.6 0 0 0 3.6 22h16.8a1.6 1.6 0 0 0 1.6-1.6V3.6A1.6 1.6 0 0 0 20.4 2zM8 19H5V9.5h3zM6.5 8.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4zM19 19h-3v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3V9.5h2.9v1.3a3.2 3.2 0 0 1 2.8-1.5c3 0 3.6 2 3.6 4.6z"/></svg><span>LinkedIn</span></a>
   </div>
 </div>
 
@@ -782,6 +803,22 @@ function glow(k,dir){
 }
 
 /* ---------- timeline: everything derives from p in [0,7] ---------- */
+/* ---------- analytics: furthest demo step, completion, CTA clicks ---------- */
+var maxStep=-1;
+function ph(name,props){ if(window.posthog&&typeof posthog.capture==='function') posthog.capture(name,props); }
+function trackStep(s){
+  window.__obspecStep=s<N?s+1:'end';
+  if(s<=maxStep) return; maxStep=s;
+  if(s<N) ph('demo_step_viewed',{step:s+1,step_name:NEXT[s],total_steps:N});
+  else ph('demo_completed',{total_steps:N});
+}
+document.addEventListener('click',function(e){
+  var a=e.target&&e.target.closest?e.target.closest('a[data-cta]'):null;
+  if(!a) return;
+  ph('cta_clicked',{cta:a.getAttribute('data-cta'),location:a.getAttribute('data-cta-location')||'',href:a.href,text:(a.textContent||'').replace(/\s+/g,' ').trim().slice(0,60),demo_step:window.__obspecStep||1});
+},true);
+if(cueBtn) cueBtn.addEventListener('click',function(){ ph('scroll_cue_clicked',{demo_step:window.__obspecStep||1}); });
+
 var lastState=-1;
 function apply(p){
   var s=Math.min(6,Math.floor(p)),t=p-s;
@@ -792,6 +829,7 @@ function apply(p){
     setText(cueSub,s<N?'Step '+(s+1)+' of '+N:'The end');
     setText(cueMain,s<N?'Next: '+NEXT[s+1]:'Back to the top');
     setCls(outro,'on',s>=5);
+    trackStep(s);
   }
   cbar.style.transform='scaleX('+(Math.min(1,p/N)).toFixed(4)+')';
   /* teammates' frame: each step adds a piece, the comment thread opens at step 5 */
