@@ -12,7 +12,8 @@ export const DESIGN_HEADING = 'Design';
  */
 export function snapshotToMarkdown(s: DesignSnapshot): string {
   const lines: string[] = [];
-  const row = (k: string, v: string) => lines.push(`- **${k}:** ${v}`);
+  // Values with '#' (colours) go in code spans: Obsidian would otherwise index `#6E56CF` as a tag.
+  const row = (k: string, v: string) => lines.push(`- **${k}:** ${v.includes('#') ? '`' + v + '`' : v}`);
   row('Node', `${s.name} · ${s.nodeId}`);
   row('Page', s.page);
   row('Size', `${s.width} × ${s.height}`);

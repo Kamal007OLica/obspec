@@ -116,7 +116,8 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
         const sel = figma.currentPage.selection;
         if (sel.length !== 1) throw new Error('Select exactly one layer to link');
         const n = sel[0];
-        writeLink(n, { v: 1, path: msg.note.path, noteHash: msg.note.hash, noteMtime: msg.note.mtime, designHash: designHashOf(n), kind: 'linked', linkedAt: Date.now(), syncedAt: Date.now() });
+        const kind = readLink(n)?.kind === 'spec-card' || n.name.startsWith('Spec · ') ? 'spec-card' : 'linked';
+        writeLink(n, { v: 1, path: msg.note.path, noteHash: msg.note.hash, noteMtime: msg.note.mtime, designHash: designHashOf(n), kind, linkedAt: Date.now(), syncedAt: Date.now() });
         figma.notify(`Linked “${n.name}” → ${msg.note.title}`);
         post({ type: 'linked-ok', nodeId: n.id });
         await pushSelection();

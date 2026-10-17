@@ -506,8 +506,9 @@ bridge.onEvent((ev: VaultEvent) => {
 
 /** Obsidian notes often start with an H1 equal to the filename; the header already shows it. */
 function stripLeadingTitle(body: string, title: string): string {
-  const re = new RegExp(`^\\s*#\\s+${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n?`);
-  return body.replace(re, '');
+  const m = /^\s*#\s+(.+?)\s*\n?/.exec(body);
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return m && slug(m[1]) === slug(title) ? body.slice(m[0].length) : body;
 }
 function pretty(t: string): string { return t.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()); }
 

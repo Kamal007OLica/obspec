@@ -21,6 +21,7 @@ test('design section uses only Spec-compatible blocks (no tables) and the rows t
   const md = snapshotToMarkdown(snap);
   assert.doesNotMatch(md, /\|/);
   for (const row of ['Node', 'Size', 'Fill', 'Label', 'Link']) assert.match(md, new RegExp(`^- \\*\\*${row}:\\*\\* `, 'm'));
+  assert.match(md, /\*\*Fill:\*\* `#6E56CF`/); // never a bare #hex — Obsidian would read it as a tag
   assert.match(md, /\*\*Label:\*\* Continue/);
   assert.match(md, /\*\*Link:\*\* https:\/\/www\.figma\.com\/design\/KEY\?node-id=2-2/);
 });

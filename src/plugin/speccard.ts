@@ -58,7 +58,7 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
 
   // Header: ● OBSIDIAN · folder ................ [● In sync]
   const header = row(card, 'header', 8);
-  header.layoutAlign = 'STRETCH'; header.primaryAxisAlignItems = 'SPACE_BETWEEN'; header.counterAxisAlignItems = 'CENTER';
+  fill(header); header.primaryAxisAlignItems = 'SPACE_BETWEEN'; header.counterAxisAlignItems = 'CENTER';
   const eyebrow = row(header, 'eyebrow', 8);
   const dot = figma.createEllipse(); dot.name = 'dot'; dot.resize(8, 8); dot.fills = [solid(C.accent)]; eyebrow.appendChild(dot);
   eyebrow.counterAxisAlignItems = 'CENTER';
@@ -71,7 +71,7 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
   // Tags
   if (note.tags.length) {
     const tags = row(card, 'tags', 6);
-    tags.layoutWrap = 'WRAP';
+    fill(tags); tags.layoutWrap = 'WRAP';
     tags.counterAxisSpacing = 6;
     for (const t of note.tags.slice(0, 8)) chip(tags, `#${t}`);
   }
@@ -81,17 +81,17 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
   // Body (markdown → lightweight blocks)
   const blocks = toBlocks(note.body, 60, note.title);
   const body = figma.createFrame(); body.name = 'body'; body.layoutMode = 'VERTICAL'; body.itemSpacing = 8; body.fills = [];
-  body.primaryAxisSizingMode = 'AUTO'; body.counterAxisSizingMode = 'AUTO'; body.layoutAlign = 'STRETCH';
-  card.appendChild(body);
+  body.primaryAxisSizingMode = 'AUTO'; body.counterAxisSizingMode = 'AUTO';
+  card.appendChild(body); fill(body);
   for (const b of blocks) {
     if (b.kind === 'h') text(body, 'heading', b.text, { font: FONT_SEMI, size: b.level <= 2 ? 14 : 13, color: C.text, lineHeight: 20, fill: true });
     else if (b.kind === 'code') {
       const box = figma.createFrame(); box.name = 'code'; box.layoutMode = 'VERTICAL'; box.fills = [solid(C.code)]; box.cornerRadius = 8;
-      box.paddingTop = box.paddingBottom = 10; box.paddingLeft = box.paddingRight = 12; box.layoutAlign = 'STRETCH'; box.primaryAxisSizingMode = 'AUTO'; box.counterAxisSizingMode = 'AUTO';
-      body.appendChild(box);
+      box.paddingTop = box.paddingBottom = 10; box.paddingLeft = box.paddingRight = 12; box.primaryAxisSizingMode = 'AUTO'; box.counterAxisSizingMode = 'AUTO';
+      body.appendChild(box); fill(box);
       text(box, 'code-text', b.text, { font: FONT_REG, size: 11, color: C.text, lineHeight: 16, fill: true, mono: true });
     } else if (b.kind === 'quote') {
-      const q = row(body, 'quote', 10); q.layoutAlign = 'STRETCH';
+      const q = row(body, 'quote', 10); fill(q);
       const bar = figma.createRectangle(); bar.name = 'bar'; bar.resize(3, 10); bar.cornerRadius = 2; bar.fills = [solid(C.accent)]; bar.layoutAlign = 'STRETCH'; q.appendChild(bar);
       text(q, 'quote-text', b.text, { font: FONT_REG, size: 13, color: C.muted, lineHeight: 20, fill: true, italic: false });
     } else text(body, b.kind === 'li' ? 'item' : 'paragraph', b.text, { font: FONT_REG, size: 13, color: C.text, lineHeight: 20, fill: true });
@@ -101,7 +101,7 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
   divider(card);
 
   // Footer: open link + meta
-  const footer = row(card, 'footer', 8); footer.layoutAlign = 'STRETCH'; footer.primaryAxisAlignItems = 'SPACE_BETWEEN'; footer.counterAxisAlignItems = 'CENTER';
+  const footer = row(card, 'footer', 8); fill(footer); footer.primaryAxisAlignItems = 'SPACE_BETWEEN'; footer.counterAxisAlignItems = 'CENTER';
   const link = text(footer, 'open', 'Open in Obsidian ↗', { font: FONT_MED, size: 11, color: C.accent });
   try { link.hyperlink = { type: 'URL', value: obsidianUrl(opts.vaultName, note.path) }; } catch { /* some hosts reject custom schemes */ }
   text(footer, 'meta', `${note.path}  ·  ${note.words} words`, { font: FONT_REG, size: 10, color: C.muted });
@@ -154,7 +154,7 @@ function text(parent: FrameNode, name: string, chars: string, o: TextOpts): Text
   if (o.lineHeight) t.lineHeight = { value: o.lineHeight, unit: 'PIXELS' };
   if (o.spacing) t.letterSpacing = { value: o.spacing, unit: 'PIXELS' };
   parent.appendChild(t);
-  if (o.fill) { t.layoutAlign = 'STRETCH'; t.textAutoResize = 'HEIGHT'; } else t.textAutoResize = 'WIDTH_AND_HEIGHT';
+  if (o.fill) { t.textAutoResize = 'HEIGHT'; fill(t); } else t.textAutoResize = 'WIDTH_AND_HEIGHT';
   return t;
 }
 
@@ -177,8 +177,13 @@ function chip(parent: FrameNode, label: string): void {
 
 function divider(parent: FrameNode): void {
   const d = figma.createRectangle();
-  d.name = 'divider'; d.resize(10, 1); d.fills = [solid(C.divider)]; d.layoutAlign = 'STRETCH';
-  parent.appendChild(d);
+  d.name = 'divider'; d.resize(10, 1); d.fills = [solid(C.divider)];
+  parent.appendChild(d); fill(d);
+}
+
+/** Make an auto-layout child span its parent's width (must be called after appendChild). */
+function fill(node: SceneNode): void {
+  try { (node as FrameNode).layoutSizingHorizontal = 'FILL'; } catch { (node as FrameNode).layoutAlign = 'STRETCH'; }
 }
 
 type Block = { kind: 'h'; level: number; text: string } | { kind: 'p' | 'li' | 'quote' | 'code'; text: string };
@@ -187,7 +192,10 @@ type Block = { kind: 'h'; level: number; text: string } | { kind: 'p' | 'li' | '
 export function toBlocks(md: string, maxBlocks = 60, dropTitle?: string): Block[] {
   const out: Block[] = [];
   // Obsidian notes often open with an H1 equal to the filename — don't repeat it under the card title.
-  if (dropTitle) md = md.replace(new RegExp(`^\\s*#\\s+${dropTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n`), '');
+  if (dropTitle) {
+    const m = /^\s*#\s+(.+?)\s*\n/.exec(md);
+    if (m && slug(m[1]) === slug(dropTitle)) md = md.slice(m[0].length);
+  }
   const lines = md.replace(/\r/g, '').split('\n');
   let para: string[] = [];
   const flush = () => { if (para.length) { out.push({ kind: 'p', text: inline(para.join(' ')) }); para = []; } };
@@ -214,6 +222,8 @@ export function toBlocks(md: string, maxBlocks = 60, dropTitle?: string): Block[
   flush();
   return out;
 }
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 function inline(s: string): string {
   return s
