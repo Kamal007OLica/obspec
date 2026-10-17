@@ -14,9 +14,10 @@ import { IMAGE_EXT, IMAGE_MIME, Vault } from './vault';
 import { search } from './search';
 import { parseFrontmatter, replaceSection, withFrontmatter } from './markdown';
 import { canPickFolder, discoverVaults, looksLikeVault, pickFolder, saveConfig } from './discover';
+import { PLUGIN_VERSION } from '../../src/shared/protocol';
 import type { BridgeError, HashesResponse, HealthResponse, PatchNoteRequest, SearchResponse, SetVaultRequest, SetVaultResponse, VaultEvent, VaultsResponse, WriteNoteRequest, WriteNoteResponse } from '../../src/shared/protocol';
 
-export const VERSION = '1.1.0';
+export const VERSION = PLUGIN_VERSION;
 
 export interface BridgeOptions {
   /** Vault to open at start. Omit to start without one; the plugin's onboarding can pick it. */

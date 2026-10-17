@@ -6,6 +6,9 @@
  * can never drift apart.
  */
 
+export const PLUGIN_VERSION = '1.1.0';
+export const SUPPORT_EMAIL = 'kr07.work@gmail.com';
+
 // ───────────────────────────── Vault / bridge ─────────────────────────────
 
 export interface VaultInfo {

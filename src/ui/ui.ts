@@ -8,7 +8,7 @@ import { icons, nodeIcon } from './icons';
 import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
 import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
-  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl,
+  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl, PLUGIN_VERSION, SUPPORT_EMAIL,
   type CardImage, type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SearchView, type SelectionSummary, type Settings, type SyncState, type ThemeMode, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
@@ -85,8 +85,9 @@ function renderTop(): void {
   const label = !state.online ? 'Bridge offline' : state.vault ? state.vault.name : 'Pick a vault';
   const tabs: Array<[Tab, string, number?]> = [['search', 'Search'], ['selection', 'Selection'], ['linked', 'Linked', state.linked.length]];
   $('top').innerHTML = `
-    <div class="brand">${icons.logo}<span class="wordmark">Obspec</span><span class="ver">v1.0</span>
+    <div class="brand">${icons.logo}<span class="wordmark">Obspec</span><span class="ver">v${PLUGIN_VERSION.replace(/\.0$/, '')}</span>
       <button class="conn ${conn}" data-act="tab" data-arg="settings" title="${esc(state.online ? state.vault?.path ?? 'No vault chosen yet' : state.healthError ?? 'Start the Obspec Bridge')}"><i class="dot"></i><span>${esc(label)}</span></button>
+      <button class="icon-btn" data-act="report-bug" aria-label="Report a bug" title="Report a bug">${icons.bug}</button>
       <button class="icon-btn" data-act="toggle-theme" aria-label="${isDark() ? 'Switch to light theme' : 'Switch to dark theme'}" title="${isDark() ? 'Switch to light theme' : 'Switch to dark theme'}${(state.settings.theme ?? 'auto') === 'auto' ? ' (currently following Figma)' : ''}">${isDark() ? icons.sun : icons.moon}</button>
       <button class="icon-btn" data-act="tab" data-arg="settings" aria-label="Settings" title="Settings">${icons.gear}</button>
     </div>
@@ -295,7 +296,19 @@ function renderSettings(): void {
     <label for="s-folder">Folder for sent designs</label><input id="s-folder" name="pushFolder" value="${esc(s.pushFolder)}" placeholder="Figma" />
     <div class="help">Notes created by “Send to Obsidian” go here, relative to the vault root.</div>
     <label for="s-width">Spec card width</label><input id="s-width" name="cardWidth" type="number" min="240" max="1200" value="${s.cardWidth}" />
-    <div id="s-status" class="status ${state.online ? 'ok' : 'err'}">${state.online ? `${icons.check} Connected to <b>${esc(state.vault?.name ?? '')}</b> · ${state.vault?.notes ?? 0} notes` : `${icons.wifiOff} ${esc(state.healthError ?? 'Not connected')}`}</div>
+    <div id="s-status" class="conn-card ${state.online ? 'ok' : 'err'}">
+      <span class="cc-icon">${state.online ? icons.check : icons.wifiOff}</span>
+      <div class="cc-text">
+        <div class="cc-title">${state.online ? 'Connected' : 'Not connected'}</div>
+        <div class="cc-sub">${state.online ? `${esc(state.vault?.name ?? 'No vault yet')}${state.vault ? ` · ${state.vault.notes.toLocaleString()} notes` : ''} · bridge v${esc(state.health?.version ?? '')}` : esc(state.healthError ?? 'Start the Obspec Bridge to connect')}</div>
+      </div>
+      ${state.online ? '' : `<button class="btn secondary sm" type="button" data-act="retry">${icons.refresh} Retry</button>`}
+    </div>
+    <label>Support</label>
+    <div class="support">
+      <p class="muted" style="margin:0 0 8px">Found a bug or have an idea? Mail <b>${SUPPORT_EMAIL}</b>. The report includes your plugin and bridge versions, never your notes.</p>
+      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn secondary sm" type="button" data-act="report-bug">${icons.bug} Report a bug</button><button class="btn ghost sm" type="button" data-act="copy-support">Copy address</button></div>
+    </div>
     <div class="row" style="margin-top:12px"><button class="btn primary" type="submit">Save &amp; reconnect</button><button class="btn ghost" type="button" data-act="tab" data-arg="search">Done</button>
       <span style="margin-left:auto;color:var(--text-3);font-size:10px">${esc(state.fileName)}${state.fileKey ? '' : ' · no file key'}</span></div>
   </form></div>`;
@@ -378,13 +391,28 @@ async function connectedToVault(v: VaultInfo): Promise<void> {
   render(); input.focus();
 }
 
+/** Opens a prefilled mail to support with harmless diagnostics (versions, platform — never note content). */
+function reportBug(): void {
+  const diag = [
+    `Obspec plugin v${PLUGIN_VERSION}`,
+    `Bridge ${state.online ? `v${state.health?.version ?? '?'} on ${state.health?.platform ?? '?'}` : 'offline'}`,
+    `Vault ${state.vault ? `${state.vault.notes} notes` : 'none'}`,
+    `Figma editor: ${state.editorType} · file: ${state.fileName || '(unnamed)'}`,
+    `Theme ${state.settings.theme ?? 'auto'} · view ${state.settings.searchView ?? 'list'} · window ${window.innerWidth}×${window.innerHeight}`,
+  ].join('\n');
+  const body = `Hi Kamal,\n\nWhat happened:\n\n\nWhat I expected:\n\n\n— diagnostics —\n${diag}\n`;
+  const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Obspec bug report (v${PLUGIN_VERSION})`)}&body=${encodeURIComponent(body)}`;
+  send({ type: 'open-url', url });
+  toast(`Opening your mail app — or write to ${SUPPORT_EMAIL}`, 'info', 5000);
+}
+
 async function copyText(text: string): Promise<void> {
   try { await navigator.clipboard.writeText(text); }
   catch {
     const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
     try { document.execCommand('copy'); } finally { ta.remove(); }
   }
-  toast('Copied — paste it in Terminal');
+  toast(text.includes('@') ? 'Address copied' : 'Copied — paste it in Terminal');
 }
 
 let searchAbort: AbortController | undefined;
@@ -544,6 +572,8 @@ app.addEventListener('click', (e) => {
     case 'copy-cmd': void copyText(BRIDGE_CMD); break;
     case 'view': state.settings = { ...state.settings, searchView: arg as SearchView }; send({ type: 'save-settings', settings: state.settings }); renderSearch(); break;
     case 'theme': setTheme(arg as ThemeMode); renderSettings(); break;
+    case 'report-bug': reportBug(); break;
+    case 'copy-support': void copyText(SUPPORT_EMAIL); break;
     case 'toggle-theme': setTheme(isDark() ? 'light' : 'dark'); break;
     case 'use-vault': void useVault(arg); break;
     case 'browse-vault': void browseVault(); break;

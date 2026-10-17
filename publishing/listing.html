@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Obspec listing assets</title>
+<style>
+  @font-face { font-family: "OffBit"; font-weight: 700; src: url("../site/assets/fonts/OffBitTrial-Bold.woff") format("woff"); }
+  body { margin: 0; background: #fff; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  /* 128×128 plugin icon */
+  #icon { width: 128px; height: 128px; border-radius: 28px; background: #0b0b0e; display: grid; place-items: center; }
+  #icon svg { width: 96px; height: 96px; }
+  /* 1920×960 cover */
+  #cover { width: 1920px; height: 960px; position: relative; overflow: hidden; background: radial-gradient(1200px 700px at 30% 20%, #1b1631 0%, #0b0b0e 60%); color: #f2f1f6; }
+  #cover .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 48px 48px; }
+  #cover .mark { position: absolute; left: 120px; top: 120px; width: 96px; height: 96px; border-radius: 22px; background: #0b0b0e; border: 1px solid rgba(255,255,255,.12); display: grid; place-items: center; }
+  #cover .mark svg { width: 72px; height: 72px; }
+  #cover h1 { position: absolute; left: 120px; top: 260px; margin: 0; font-family: "OffBit", Inter, sans-serif; font-size: 152px; line-height: .95; letter-spacing: .01em; }
+  #cover h1 i { font-style: normal; color: #a08dff; }
+  #cover p { position: absolute; left: 124px; top: 470px; margin: 0; width: 760px; font-size: 38px; line-height: 1.3; color: rgba(242,241,246,.78); }
+  #cover .tags { position: absolute; left: 124px; top: 640px; display: flex; gap: 12px; }
+  #cover .tags span { padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(160,141,255,.35); color: #c8b4ff; font-size: 22px; letter-spacing: .02em; }
+  #cover .card { position: absolute; right: 120px; top: 150px; width: 640px; border-radius: 28px; background: #fff; color: #1c1b22; padding: 40px; box-shadow: 0 40px 100px rgba(0,0,0,.5); transform: rotate(-3deg); }
+  #cover .card .eyebrow { display: flex; align-items: center; justify-content: space-between; font-size: 16px; letter-spacing: 2px; color: #6f6d7a; }
+  #cover .card .eyebrow b { display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0; font-size: 16px; font-weight: 600; color: #1f8a4c; background: #e5f6ec; padding: 6px 14px; border-radius: 999px; }
+  #cover .card .eyebrow b::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+  #cover .card h2 { font-size: 44px; margin: 22px 0 14px; letter-spacing: -.01em; }
+  #cover .card .chips span { display: inline-block; font-size: 17px; font-weight: 600; color: #6e56cf; background: #eeebfb; padding: 6px 14px; border-radius: 999px; margin-right: 8px; }
+  #cover .card hr { border: 0; border-top: 2px solid #eeedf3; margin: 26px 0; }
+  #cover .card li { font-size: 24px; line-height: 1.5; color: #1c1b22; }
+  #cover .card ul { margin: 0; padding-left: 28px; }
+  #cover .card .foot { display: flex; justify-content: space-between; font-size: 17px; color: #6f6d7a; margin-top: 26px; }
+  #cover .card .foot b { color: #6e56cf; font-weight: 600; }
+  #cover .footer { position: absolute; left: 124px; bottom: 70px; font-size: 22px; color: rgba(242,241,246,.5); }
+</style>
+<div id="icon">
+  <svg viewBox="0 0 64 64"><g transform="translate(17 7.5) scale(.79)"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#4a2a93"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#2d1a5e"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" fill="#5a35ad"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#3b2278"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#33206b"/><path d="M19 0l9.5 0 0 9.5-9.5 9.5z" fill="#8a66d8" opacity=".55"/><path d="M28.5 19l-5 4 0 9.5 7-3.5z" fill="#9f7ff0" opacity=".45"/><path d="M0 9.5L9.5 0 19 0 5 14z" fill="#6a48b8" opacity=".4"/><path d="M9.5 38L19 38 19 47.5 4 48z" fill="#6a48b8" opacity=".35"/><path d="M0 38q19 -2 38 -9.5" fill="none" stroke="#c8b4ff" stroke-width=".8" opacity=".5"/></g></svg>
+</div>
+<div id="cover">
+  <div class="grid"></div>
+  <div class="mark"><svg viewBox="0 0 64 64"><g transform="translate(17 7.5) scale(.79)"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#4a2a93"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#2d1a5e"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" fill="#5a35ad"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#3b2278"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#33206b"/><path d="M19 0l9.5 0 0 9.5-9.5 9.5z" fill="#8a66d8" opacity=".55"/><path d="M28.5 19l-5 4 0 9.5 7-3.5z" fill="#9f7ff0" opacity=".45"/><path d="M0 9.5L9.5 0 19 0 5 14z" fill="#6a48b8" opacity=".4"/><path d="M9.5 38L19 38 19 47.5 4 48z" fill="#6a48b8" opacity=".35"/></g></svg></div>
+  <h1>Obspec<i>.</i></h1>
+  <p>Search your Obsidian vault inside Figma. Drop notes on the canvas as Specs. Keep both in sync — locally.</p>
+  <div class="tags"><span>Obsidian × Figma Specs</span><span>Two-way sync</span><span>Nothing leaves your Mac</span></div>
+  <div class="card">
+    <div class="eyebrow"><span>● OBSIDIAN · Product/Specs</span><b>In sync</b></div>
+    <h2>Payment Methods</h2>
+    <div class="chips"><span>#checkout</span><span>#payments</span><span>#spec</span></div>
+    <hr>
+    <ul><li>Apple Pay first on iOS and Safari</li><li>Cards always available, PayPal in US, UK, DE</li><li>Remember the last used method</li></ul>
+    <div class="foot"><b>Open in Obsidian ↗</b><span>Product/Specs/Payment Methods.md</span></div>
+  </div>
+  <div class="footer">Open source · MIT · kamal007olica.github.io/obspec</div>
+</div>

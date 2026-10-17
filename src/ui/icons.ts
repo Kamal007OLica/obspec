@@ -29,6 +29,7 @@ export const icons = {
   grid: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/>'),
   list: svg('<rect x="2.5" y="3" width="3.5" height="3.5" rx="1"/><path d="M8 4.75h5.5"/><rect x="2.5" y="9.5" width="3.5" height="3.5" rx="1"/><path d="M8 11.25h5.5"/>'),
   rows: svg('<path d="M2.5 4h11M2.5 8h11M2.5 12h11"/>'),
+  bug: svg('<path d="M8 4.5a3 3 0 0 1 3 3v2.5a3 3 0 0 1-6 0V7.5a3 3 0 0 1 3-3zM6 3l1 1.5M10 3 9 4.5M3 7.5h2M11 7.5h2M3.5 12 5 11M12.5 12 11 11M3.5 4.5 5 6M12.5 4.5 11 6"/>'),
   close: svg('<path d="m4 4 8 8M12 4l-8 8"/>'),
 };
 

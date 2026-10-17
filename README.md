@@ -130,6 +130,26 @@ Figma Specs are markdown-based, and Figma makes a native Spec out of any `.md` f
 - **Spec card:** the auto-layout frame Obspec inserts is a readable mirror that stays linked and shows its sync status on the frame. Use it when you want the note to live *inside* your design, next to the frames it describes.
 - **What we write:** the `## Design` section and generated notes use only headings, lists, quotes, code and dividers — the block set Specs documents — so the same file reads cleanly in Obsidian and in Figma.
 
+## Shipping it (Figma Community)
+
+Everything the listing needs is in the repo:
+
+- **Plugin files:** `manifest.json`, `dist/code.js`, `dist/ui.html` (run `npm run build`). The manifest declares `documentAccess: dynamic-page` and a `networkAccess` limited to `http://localhost:27123` with a reasoning string, which is what Figma's review looks for.
+- **Icon and cover:** `node scripts/listing-assets.mjs` renders `publishing/icon.png` (128×128) and `publishing/cover.png` (1920×960) from `publishing/listing.html`.
+- **Checks before you publish:** `npm run typecheck && npm test && npm run emulate` — types, 34 unit/integration tests, and the seven end-to-end scenarios in headless Chrome.
+- **Fonts:** the UI embeds OffBit Bold (the site's display face) for the wordmark and headings. The file in `site/assets/fonts` is the *trial* cut from Power Type — license it before publishing, or swap `--display` in `src/ui/app.css` to the system stack.
+
+### Does it work offline, and on a new computer?
+
+**Offline: yes.** The plugin bundle is self-contained (no CDN, no fonts fetched, no analytics). Its only network traffic is to the bridge on `localhost`, and the bridge touches nothing but the vault folder. Figma itself needs to be open, which is the only online part — and Figma desktop works offline for already-open files.
+
+**New computer: yes, with one prerequisite — Node.js 18 or newer** (20+ on Linux for native file watching; older Node falls back to polling). The first-run flow in the plugin walks the user through it:
+
+1. Start the bridge: `npx github:Kamal007OLica/obspec` (needs internet once to fetch it; cached afterwards) or double-click `Obspec Bridge.command`.
+2. Pick a vault from the list the bridge reads out of Obsidian's own registry, browse for a folder, or paste a path. The choice is saved to `~/.obspec/config.json`, so the next start needs no arguments.
+
+Windows and Linux are supported by the bridge (paths, folder dialog via PowerShell / zenity), but have only been exercised on macOS so far.
+
 ## Notes & limits
 
 - `figma.fileKey` is only exposed to private/org plugins; without it the note's `figma_url` is omitted (everything else works).

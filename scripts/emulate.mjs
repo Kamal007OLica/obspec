@@ -72,6 +72,10 @@ await shot('07d-search-compact.png');
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('[data-act=view][data-arg=list]'); await u.waitFor('.result:not(.rcard):not(.compact)');})()`);
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('.result'); await u.waitFor('.note-title'); await new Promise(r=>setTimeout(r,500));})()`);
 await shot('08-note-view.png');
+// Settings tab (connection card, theme, support).
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('[data-act="tab"][data-arg="settings"]'); await u.waitFor('.conn-card'); await new Promise(r=>setTimeout(r,400));})()`);
+await shot('10-settings.png');
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.tab('search');})()`);
 // Dark theme snapshot of the plugin for the record.
 await evaluate(`localStorage.setItem('obspec:preview-theme','dark'); document.getElementById('theme').click(); true`);
 await sleep(600);
