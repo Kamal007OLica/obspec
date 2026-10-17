@@ -221,8 +221,8 @@ function renderLinked(): void {
 function renderSettings(): void {
   const s = state.settings;
   $('view-settings').innerHTML = `<div class="scroll"><form class="form" id="settings-form">
-    <label for="s-url">Bridge address</label><input id="s-url" name="bridgeUrl" value="${esc(s.bridgeUrl)}" placeholder="http://127.0.0.1:27123" />
-    <div class="help">Where the Obspec Bridge is listening. Start it with <code>npx obspec-bridge --vault &lt;path&gt;</code>.</div>
+    <label for="s-url">Bridge address</label><input id="s-url" name="bridgeUrl" value="${esc(s.bridgeUrl)}" placeholder="http://localhost:27123" />
+    <div class="help">Where the Obspec Bridge is listening. Start it with <code>npx obspec-bridge --vault &lt;path&gt;</code>. Figma only lets this plugin reach <code>http://localhost:27123</code>, so keep that host and port unless you also edit the manifest.</div>
     <label for="s-token">Token <span style="font-weight:400;color:var(--text-3)">(optional)</span></label><input id="s-token" name="token" value="${esc(s.token)}" placeholder="Only if you started the bridge with --token" />
     <label for="s-folder">Folder for sent designs</label><input id="s-folder" name="pushFolder" value="${esc(s.pushFolder)}" placeholder="Figma" />
     <div class="help">Notes created by “Send to Obsidian” go here, relative to the vault root.</div>

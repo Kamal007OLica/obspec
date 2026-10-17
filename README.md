@@ -61,7 +61,7 @@ node bridge/dist/cli.js --vault "~/Documents/My Vault"      # or: npx obspec-bri
 # 2. in Figma: Plugins → Development → Import plugin from manifest… → pick manifest.json
 ```
 
-The plugin connects to `http://127.0.0.1:27123` by default; change it under ⚙ Settings. Add `--token <secret>` to the bridge and paste it in Settings if you want auth on top of the loopback bind.
+The plugin connects to `http://localhost:27123`, the only address Figma allows it to reach (see `networkAccess` in `manifest.json`). Keep the bridge on that port. Add `--token <secret>` to the bridge and paste it in Settings if you want auth on top of the loopback bind.
 
 ## Local preview (no Figma needed)
 

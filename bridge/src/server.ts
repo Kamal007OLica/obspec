@@ -33,7 +33,7 @@ export async function startBridge(opts: BridgeOptions): Promise<{ server: http.S
     log(ev.type, ev.type === 'hello' ? '' : ev.path);
   });
 
-  const server = http.createServer(async (req, res) => {
+  const handler: http.RequestListener = async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${host}`);
     const origin = req.headers.origin;
     // Figma plugin iframes have an opaque origin ("null"); preview harness is localhost.
@@ -119,7 +119,8 @@ export async function startBridge(opts: BridgeOptions): Promise<{ server: http.S
       if (code === 'INTERNAL') console.error('[obspec] error', err);
       return fail(res, code, e.message);
     }
-  });
+  };
+  const server = http.createServer(handler);
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -127,13 +128,22 @@ export async function startBridge(opts: BridgeOptions): Promise<{ server: http.S
   });
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : opts.port;
+  // "localhost" may resolve to ::1 first; serve that loopback too when running on the default host.
+  const extra: http.Server[] = [];
+  if (!opts.host) {
+    const v6 = http.createServer(handler);
+    await new Promise<void>((resolve) => {
+      v6.once('error', () => resolve()); // no IPv6 loopback — IPv4 alone is fine
+      v6.listen(port, '::1', () => { extra.push(v6); resolve(); });
+    });
+  }
   const url = `http://${host}:${port}`;
   log(`Obspec Bridge v${VERSION}`);
   log(`vault   ${vault.root} (${vault.info().notes} notes, indexed in ${Date.now() - t0} ms)`);
-  log(`listen  ${url}${opts.token ? '  (token required)' : ''}`);
+  log(`listen  ${url}${extra.length ? ' and [::1]' : ''}${opts.token ? '  (token required)' : ''}`);
   return {
     server, vault, url,
-    close: () => new Promise<void>((r) => { for (const c of sseClients) c.end(); vault.stop(); server.close(() => r()); }),
+    close: () => new Promise<void>((r) => { for (const c of sseClients) c.end(); vault.stop(); for (const e of extra) e.close(); server.close(() => r()); }),
   };
 }
 

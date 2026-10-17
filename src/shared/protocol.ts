@@ -202,7 +202,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  bridgeUrl: 'http://127.0.0.1:27123',
+  bridgeUrl: 'http://localhost:27123',
   token: '',
   pushFolder: 'Figma',
   vaultName: '',

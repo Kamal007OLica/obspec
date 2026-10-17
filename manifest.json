@@ -4,23 +4,46 @@
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
-  "editorType": ["figma", "figjam"],
+  "editorType": [
+    "figma",
+    "figjam"
+  ],
   "documentAccess": "dynamic-page",
   "capabilities": [],
   "enableProposedApi": false,
   "networkAccess": {
-    "allowedDomains": ["http://localhost:27123", "http://127.0.0.1:27123"],
-    "devAllowedDomains": ["http://localhost:*", "http://127.0.0.1:*"],
-    "reasoning": "Obspec talks only to the Obspec Bridge running on your machine, which indexes your Obsidian vault. No data leaves your computer."
+    "allowedDomains": [
+      "http://localhost:27123"
+    ],
+    "reasoning": "Obspec talks only to the Obspec Bridge running on your own machine (localhost:27123), which indexes your Obsidian vault. No data leaves your computer."
   },
   "relaunchButtons": [
-    { "command": "open", "name": "Open linked note", "multipleSelection": false },
-    { "command": "pull", "name": "Pull from Obsidian", "multipleSelection": true }
+    {
+      "command": "open",
+      "name": "Open linked note",
+      "multipleSelection": false
+    },
+    {
+      "command": "pull",
+      "name": "Pull from Obsidian",
+      "multipleSelection": true
+    }
   ],
   "menu": [
-    { "name": "Open Obspec", "command": "open" },
-    { "separator": true },
-    { "name": "Link selection to a note…", "command": "link" },
-    { "name": "Send selection to Obsidian", "command": "push" }
+    {
+      "name": "Open Obspec",
+      "command": "open"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Link selection to a note\u2026",
+      "command": "link"
+    },
+    {
+      "name": "Send selection to Obsidian",
+      "command": "push"
+    }
   ]
 }
