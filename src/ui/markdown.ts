@@ -81,33 +81,36 @@ function cells(line: string): string[] {
 }
 
 export function inline(src: string, opts: RenderOptions = {}): string {
-  // Protect code spans first.
-  const codes: string[] = [];
-  let s = src.replace(/`([^`]+)`/g, (_, c) => { codes.push(`<code>${esc(c)}</code>`); return `\u0000${codes.length - 1}\u0000`; });
+  // Generated HTML goes into `slots` and is spliced back at the end, so later passes
+  // (emphasis, autolinks, tags) never touch the inside of a tag we already emitted.
+  const slots: string[] = [];
+  const keep = (html: string) => `\u0000${slots.push(html) - 1}\u0000`;
+  let s = src.replace(/`([^`]+)`/g, (_, c) => keep(`<code>${esc(c)}</code>`));
   s = esc(s);
   s = s.replace(/!\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_, t: string, size: string | undefined) => {
     const url = opts.resolveImage?.(t.trim());
-    if (!url) return `<span class="chip neutral">🖼 ${t.trim()}</span>`;
+    if (!url) return keep(`<span class="chip neutral">🖼 ${esc(t.trim())}</span>`);
     const w = size && /^\d+/.test(size) ? ` width="${parseInt(size, 10)}"` : '';
-    return `<img class="embed" src="${esc(url)}" alt="${esc(t.trim())}" loading="lazy"${w}>`;
+    return keep(`<img class="embed" src="${esc(url)}" alt="${esc(t.trim())}" loading="lazy"${w}>`);
   });
   s = s.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (_, target: string, _anchor: string, alias: string) => {
     const ok = opts.resolves ? opts.resolves(target.trim()) : true;
-    return `<span class="wiki${ok ? '' : ' broken'}" data-wiki="${esc(target.trim())}" role="link" tabindex="0">${alias ?? target}</span>`;
+    return keep(`<span class="wiki${ok ? '' : ' broken'}" data-wiki="${esc(target.trim())}" role="link" tabindex="0">${alias ?? target}</span>`);
   });
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, alt: string, url: string) => {
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;[^&]*&quot;)?\)/g, (_, alt: string, url: string) => {
     const local = !/^(https?:|data:)/i.test(url) ? opts.resolveImage?.(url) : undefined;
-    return `<img class="embed" alt="${alt}" src="${local ? esc(local) : safeUrl(url)}" loading="lazy">`;
+    return keep(`<img class="embed" alt="${alt}" src="${local ? esc(local) : safeUrl(url)}" loading="lazy">`);
   });
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${t}</a>`);
-  s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:)])/g, (m) => `<a href="${safeUrl(m)}" target="_blank" rel="noopener">${m}</a>`);
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t: string, url: string) => keep(`<a href="${safeUrl(url)}" target="_blank" rel="noopener">${t}</a>`));
+  s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:)])/g, (m) => keep(`<a href="${safeUrl(m)}" target="_blank" rel="noopener">${m}</a>`));
   s = s.replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, '<strong>$2</strong>');
   s = s.replace(/(^|[^*\w])\*(?=\S)(.+?)(?<=\S)\*(?!\w)/g, '$1<em>$2</em>');
   s = s.replace(/(^|[^_\w])_(?=\S)(.+?)(?<=\S)_(?!\w)/g, '$1<em>$2</em>');
   s = s.replace(/~~(.+?)~~/g, '<del>$1</del>');
   s = s.replace(/==(.+?)==/g, '<span class="hl">$1</span>');
   s = s.replace(/(^|[\s(])#([A-Za-z][A-Za-z0-9_\-/]*)/g, '$1<span class="tag">#$2</span>');
-  s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[Number(i)]);
+  // Restore slots (nested: a slot may itself contain a slot marker, so loop until none remain).
+  for (let guard = 0; guard < 4 && /\u0000\d+\u0000/.test(s); guard++) s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => slots[Number(i)]);
   return s;
 }
 

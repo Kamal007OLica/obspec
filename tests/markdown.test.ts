@@ -26,7 +26,7 @@ test('tags come from frontmatter and body, not code', () => {
 });
 
 test('wikilinks ignore aliases and anchors', () => {
-  assert.deepEqual(extractWikilinks('See [[Button|the button]] and [[Tokens#Colors]] and [[Button]]'), ['Button', 'Tokens']);
+  assert.deepEqual(extractWikilinks('See [[Button|the button]] and [[Tokens#Colors]] and [[Button]] ![[shot.png]]'), ['Button', 'Tokens']);
 });
 
 test('replaceSection replaces an existing H2 block and appends when missing', () => {

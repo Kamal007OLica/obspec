@@ -113,7 +113,7 @@ export function withFrontmatter(content: string, fm: Record<string, unknown>): s
 }
 
 const TAG_RE = /(^|[\s(])#([A-Za-z0-9_\-/]+[A-Za-z0-9_])/g;
-const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
+const WIKILINK_RE = /(?<!!)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g; // `![[…]]` embeds are not links
 const CODE_FENCE_RE = /```[\s\S]*?```|`[^`\n]*`/g;
 
 export function extractTags(body: string, frontmatter: Record<string, unknown>): string[] {
