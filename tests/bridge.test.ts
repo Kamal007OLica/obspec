@@ -12,7 +12,7 @@ before(async () => {
   other = await mkdtemp(path.join(os.tmpdir(), 'obspec-other-'));
   await mkdir(path.join(dir, 'Specs'), { recursive: true });
   await mkdir(path.join(dir, '.obsidian'), { recursive: true });
-  await writeFile(path.join(dir, 'Specs/Checkout.md'), '---\ntags: [spec]\n---\n# Checkout\nApple Pay first. See [[Button]].\n');
+  await writeFile(path.join(dir, 'Specs/Checkout.md'), '---\ntags: [spec]\n---\n# Checkout\nApple Pay first. See [[Button]].\n![[shot.png]]\n');
   await writeFile(path.join(dir, 'Button.md'), '# Button\nPrimary button.\n');
   await writeFile(path.join(dir, '.obsidian/workspace.md'), 'should be ignored');
   await writeFile(path.join(other, 'Only.md'), '# Only\nIn the other vault.\n');
@@ -44,6 +44,9 @@ test('search finds notes with snippets', async () => {
   assert.equal(r.total, 1);
   assert.equal(r.results[0].path, 'Specs/Checkout.md');
   assert.ok(r.results[0].snippets[0].ranges.length > 0);
+  assert.equal(r.results[0].thumbnail, 'Specs/attachments/shot.png');
+  const recent = await get('/notes?limit=5');
+  assert.equal(recent.notes.find((n: any) => n.path === 'Specs/Checkout.md').thumbnail, 'Specs/attachments/shot.png');
 });
 
 test('note resolves outlinks and backlinks through the indexes', async () => {

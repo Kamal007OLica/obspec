@@ -7,7 +7,7 @@
 import { promises as fs, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { fnv1a, folderFromPath, titleFromPath, type Note, type NoteLink, type NoteListItem, type VaultEvent, type VaultInfo } from '../../src/shared/protocol';
+import { fnv1a, folderFromPath, imageTargets, titleFromPath, type Note, type NoteLink, type NoteListItem, type VaultEvent, type VaultInfo } from '../../src/shared/protocol';
 import { countWords, extractTags, extractWikilinks, parseFrontmatter } from './markdown';
 
 export interface IndexedNote {
@@ -27,6 +27,8 @@ export interface IndexedNote {
   mtime: number;
   hash: string;
   words: number;
+  /** First image embed target in the body, if any (raw, unresolved). */
+  firstImage?: string;
 }
 
 const IGNORED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -98,6 +100,12 @@ export class Vault extends EventEmitter {
 
   get(rel: string): IndexedNote | undefined { return this.notes.get(normalize(rel)); }
 
+  /** Vault path of the note's first embedded image, when it exists. */
+  thumbnailFor(rel: string): string | undefined {
+    const t = this.notes.get(normalize(rel))?.firstImage;
+    return t ? this.resolveFile(t)?.rel : undefined;
+  }
+
   /** Resolve an image embed like Obsidian: exact path, else by file name anywhere in the vault. */
   resolveFile(target: string): { rel: string; abs: string } | undefined {
     let t = normalize(decodeURIComponentSafe(target).replace(/^\.\//, '').trim());
@@ -120,7 +128,7 @@ export class Vault extends EventEmitter {
       this.recent = [...this.notes.values()].sort((a, b) => b.mtime - a.mtime)
         .map((n) => ({ path: n.path, title: n.title, mtime: n.mtime, tags: n.tags, hash: n.hash }));
     }
-    return this.recent.slice(0, limit);
+    return this.recent.slice(0, limit).map((item) => ({ ...item, thumbnail: this.thumbnailFor(item.path) }));
   }
 
   /** Resolve a wikilink target the way Obsidian does: exact path first, then by file name anywhere. */
@@ -208,7 +216,7 @@ export class Vault extends EventEmitter {
       path: rel, title, folder: folderFromPath(rel), frontmatter, content, body,
       bodyLower: body.toLowerCase(), titleLower: title.toLowerCase(), pathLower: rel.toLowerCase(), baseLower: baseKey(rel),
       tags: extractTags(body, frontmatter), outlinks: extractWikilinks(body),
-      mtime: Math.round(stat.mtimeMs), hash: fnv1a(content), words: countWords(body),
+      mtime: Math.round(stat.mtimeMs), hash: fnv1a(content), words: countWords(body), firstImage: imageTargets(body, 1)[0],
     };
     this.remove(rel, false);
     this.notes.set(rel, note);

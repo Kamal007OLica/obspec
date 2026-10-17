@@ -102,7 +102,7 @@ function renderSearch(): void {
   if (onboarding) { box.innerHTML = renderOnboarding(); return; }
   if (!state.query.trim()) {
     box.innerHTML = state.recent.length
-      ? `<div class="section-label">Recently edited</div><ul class="results">${state.recent.map((n, i) => resultRow({ path: n.path, title: n.title, folder: n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : '', tags: n.tags, mtime: n.mtime, score: 0, matchedIn: [], snippets: [] }, i, [])).join('')}</ul>`
+      ? `<div class="section-label">Recently edited</div><ul class="results">${state.recent.map((n, i) => resultRow({ path: n.path, title: n.title, folder: n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : '', tags: n.tags, mtime: n.mtime, score: 0, matchedIn: [], snippets: [], thumbnail: n.thumbnail }, i, [])).join('')}</ul>`
       : emptyState(icons.empty, 'Your vault is empty', 'Create a note in Obsidian and it shows up here instantly.');
     return;
   }
@@ -118,9 +118,12 @@ function resultRow(r: SearchResult, i: number, terms: string[]): string {
   const linkedCount = state.linked.filter((l) => l.link.path === r.path).length;
   const snip = r.snippets[0];
   return `<li><button class="result" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
-    <div class="r-head"><span class="r-title">${highlightTerms(r.title, terms)}</span><span class="r-path">${esc(r.folder || '/')}</span></div>
-    ${snip ? `<div class="r-snip">${snip.ranges.length ? `<span class="ln">L${snip.line}</span>` : ''}${highlight(snip.text, snip.ranges)}</div>` : ''}
-    <div class="r-foot">${r.tags.slice(0, 4).map((t) => `<span class="chip">#${esc(t)}</span>`).join('')}${linkedCount ? `<span class="chip linked">${icons.link} ${linkedCount} on canvas</span>` : ''}${r.matchedIn.length ? `<span class="where">${r.matchedIn.join(' · ')}</span>` : `<span class="where">${relativeTime(r.mtime)}</span>`}</div>
+    <div class="r-main">
+      <div class="r-head"><span class="r-title">${highlightTerms(r.title, terms)}</span><span class="r-path">${esc(r.folder || '/')}</span></div>
+      ${snip ? `<div class="r-snip">${snip.ranges.length ? `<span class="ln">L${snip.line}</span>` : ''}${highlight(snip.text, snip.ranges)}</div>` : ''}
+      <div class="r-foot">${r.tags.slice(0, 4).map((t) => `<span class="chip">#${esc(t)}</span>`).join('')}${linkedCount ? `<span class="chip linked">${icons.link} ${linkedCount} on canvas</span>` : ''}${r.matchedIn.length ? `<span class="where">${r.matchedIn.join(' · ')}</span>` : `<span class="where">${relativeTime(r.mtime)}</span>`}</div>
+    </div>
+    ${r.thumbnail && state.online ? `<img class="r-thumb" src="${esc(bridge.fileUrl(r.thumbnail))}" alt="" loading="lazy" decoding="async">` : ''}
   </button></li>`;
 }
 

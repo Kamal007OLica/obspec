@@ -63,6 +63,8 @@ for (let i = 0; i < titles.length; i++) {
 // Extra stills: search results with highlights, and the note view.
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.tab('search'); const b=document.getElementById('plugin').contentDocument.querySelector('[data-act=back]'); if(b&&b.getClientRects().length){b.click(); await new Promise(r=>setTimeout(r,200));} await u.typeInto('#q','apple pay tag:spec'); await u.waitFor('.result'); await new Promise(r=>setTimeout(r,500));})()`);
 await shot('07-search-results.png');
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.typeInto('#q','states'); await u.waitFor('.r-thumb'); await new Promise(r=>setTimeout(r,600));})()`);
+await shot('07b-search-thumbnails.png');
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('.result'); await u.waitFor('.note-title'); await new Promise(r=>setTimeout(r,500));})()`);
 await shot('08-note-view.png');
 // Dark theme snapshot of the plugin for the record.

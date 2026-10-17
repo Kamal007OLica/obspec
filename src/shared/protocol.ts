@@ -60,6 +60,8 @@ export interface SearchResult {
   /** Where the hit came from — drives the small badge in the result row. */
   matchedIn: Array<'title' | 'path' | 'tag' | 'body'>;
   snippets: SearchMatch[];
+  /** Vault-relative path of the note's first embedded image, for a row thumbnail. */
+  thumbnail?: string;
 }
 
 export interface SearchResponse {
@@ -172,7 +174,7 @@ export interface LinkedNodeSummary {
   designHash: string;
 }
 
-export interface NoteListItem { path: string; title: string; mtime: number; tags: string[]; hash: string }
+export interface NoteListItem { path: string; title: string; mtime: number; tags: string[]; hash: string; thumbnail?: string }
 
 export interface SelectionSummary {
   count: number;

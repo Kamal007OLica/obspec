@@ -113,6 +113,7 @@ export async function startBridge(opts: BridgeOptions): Promise<Bridge> {
           const limit = clampInt(url.searchParams.get('limit'), 1, 200, 50);
           const t = performance.now();
           const { results, total } = search(v.all(), q, limit);
+          for (const r of results) { const thumb = v.thumbnailFor(r.path); if (thumb) r.thumbnail = thumb; }
           const body: SearchResponse = { query: q, total, results, tookMs: Math.round((performance.now() - t) * 10) / 10 };
           return json(res, body);
         }

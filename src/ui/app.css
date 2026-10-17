@@ -105,8 +105,10 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .section-label .count { margin-left: auto; font-weight: 500; letter-spacing: 0; text-transform: none; }
 
 .results { list-style: none; margin: 0; padding: 0 6px 8px; }
-.result { display: block; width: 100%; text-align: left; padding: 8px 8px 9px; border-radius: var(--radius); margin: 1px 0; cursor: pointer;
+.result { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 8px 8px 9px; border-radius: var(--radius); margin: 1px 0; cursor: pointer;
   border: 1px solid transparent; }
+.result .r-main { flex: 1 1 auto; min-width: 0; }
+.result .r-thumb { flex: none; width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-2); margin-top: 1px; }
 .result:hover { background: var(--bg-hover); }
 .result[aria-selected="true"] { background: var(--bg-selected); border-color: transparent; }
 .result .r-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
