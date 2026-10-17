@@ -40,7 +40,7 @@ export function search(notes: Iterable<IndexedNote>, rawQuery: string, limit = 5
   const hasFilters = q.tags.length || q.paths.length || q.excludes.length;
   if (!needles.length && !hasFilters) return { results: [], total: 0 };
 
-  const scored: SearchResult[] = [];
+  const scored: Array<{ note: IndexedNote; result: SearchResult }> = [];
   for (const n of notes) {
     if (q.tags.length && !q.tags.every((t) => n.tags.some((nt) => nt.toLowerCase() === t || nt.toLowerCase().startsWith(t + '/')))) continue;
     if (q.paths.length && !q.paths.every((p) => n.pathLower.includes(p))) continue;
@@ -67,18 +67,18 @@ export function search(notes: Iterable<IndexedNote>, rawQuery: string, limit = 5
     // Shorter titles rank slightly higher on ties (specific over generic).
     score -= Math.min(5, n.title.length / 20);
 
-    scored.push({
-      path: n.path, title: n.title, folder: n.folder, tags: n.tags, mtime: n.mtime, score,
-      matchedIn: [...matchedIn], snippets: makeSnippets(n.body, n.bodyLower, needles),
-    });
+    scored.push({ note: n, result: { path: n.path, title: n.title, folder: n.folder, tags: n.tags, mtime: n.mtime, score, matchedIn: [...matchedIn], snippets: [] } });
   }
-  scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
-  return { results: scored.slice(0, limit), total: scored.length };
+  scored.sort((a, b) => b.result.score - a.result.score || a.result.title.localeCompare(b.result.title));
+  // Snippets are the expensive part (line splitting per note): build them only for what we return.
+  const top = scored.slice(0, limit);
+  for (const { note, result } of top) result.snippets = makeSnippets(note.body, note.bodyLower, needles);
+  return { results: top.map((t) => t.result), total: scored.length };
 }
 
 function countOccurrences(hay: string, needle: string): number {
   let i = 0, c = 0;
-  while ((i = hay.indexOf(needle, i)) !== -1) { c++; i += needle.length; if (c > 200) break; }
+  while ((i = hay.indexOf(needle, i)) !== -1) { c++; i += needle.length; if (c >= 20) break; } // score saturates at ~20 hits
   return c;
 }
 

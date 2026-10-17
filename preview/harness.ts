@@ -185,8 +185,10 @@ function connectBridge(): void {
   const es = new EventSource(`${BRIDGE}/events`);
   es.addEventListener('vault', (e) => {
     const ev = JSON.parse((e as MessageEvent).data) as VaultEvent;
-    status.textContent = `bridge · ${ev.type === 'hello' ? ev.vault.notes + ' notes' : ev.type + ' ' + ev.path}`; status.className = 'status on';
-    if (ev.type !== 'hello') { log(`vault ${ev.type}: ${ev.path}`, 'vault'); if (ev.path === obPath) void showObsidian(obPath); }
+    const what = ev.type === 'hello' || ev.type === 'vault-changed' ? (ev.vault ? `${ev.vault.name} · ${ev.vault.notes} notes` : 'no vault') : `${ev.type} ${ev.path}`;
+    status.textContent = `bridge · ${what}`; status.className = 'status on';
+    if (ev.type === 'vault-changed') log(`vault ${ev.vault ? 'switched to ' + ev.vault.name : 'cleared'}`, 'vault');
+    else if (ev.type !== 'hello') { log(`vault ${ev.type}: ${ev.path}`, 'vault'); if (ev.path === obPath) void showObsidian(obPath); }
   });
   es.onerror = () => { status.textContent = 'bridge offline'; status.className = 'status off'; es.close(); setTimeout(connectBridge, 2000); };
 }
@@ -238,6 +240,21 @@ const pill = (state: string) => waitFor('.pill', (el) => el.classList.contains(s
 
 interface Scenario { title: string; detail: string; run: () => Promise<void> }
 const scenarios: Scenario[] = [
+  { title: 'First run: connect and pick a vault', detail: 'The bridge forgets its vault; the plugin shows the two-step onboarding. The demo vault is chosen by pasting its path (on a real Mac you would click a vault Obsidian already knows, or browse).', run: async () => {
+    const health = await fetch(`${BRIDGE}/health`).then((r) => r.json()) as { vault: { path: string } | null };
+    const demoPath = health.vault?.path ?? '';
+    await fetch(`${BRIDGE}/vault`, { method: 'DELETE' });
+    await tab('search');
+    await waitFor('.onb');
+    await waitFor('.step.active .step-body b', (el) => /Pick your vault/.test(el.textContent ?? ''));
+    await sleep(900);
+    await typeInto('#vault-manual input', demoPath);
+    await sleep(300);
+    await click('#vault-manual button');
+    await waitFor('.conn.on');
+    await waitFor('.result');
+    await sleep(500);
+  } },
   { title: 'Search the vault, insert a spec card', detail: 'Type a query → open the note → “Insert spec card”. The card lands on the canvas, linked to the note.', run: async () => {
     await tab('search'); await click('#q').catch(() => {});
     await typeInto('#q', 'apple pay');
@@ -267,7 +284,7 @@ const scenarios: Scenario[] = [
     // Prefer a spec card so the rebuild is visible on the canvas; fall back to any linked layer.
     let n = pages.flatMap((p) => p.nodes).find((x) => x.kind === 'spec-card' && readLink(x));
     if (!n) n = selection[0] ? findNode(selection[0]) : undefined;
-    if (!n || !readLink(n)) { await scenarios[0].run(); n = pages.flatMap((p) => p.nodes).find((x) => readLink(x))!; }
+    if (!n || !readLink(n)) { await scenarios[1].run(); n = pages.flatMap((p) => p.nodes).find((x) => readLink(x))!; }
     select([n.id]);
     await tab('selection');
     const link = readLink(n)!;
@@ -291,7 +308,7 @@ const scenarios: Scenario[] = [
   } },
   { title: 'Design changes → status flips → re-send', detail: 'The button label is changed on the canvas. Obspec shows “Design changed”; sending again updates the note’s Design section.', run: async () => {
     let n = selection[0] ? findNode(selection[0]) : undefined;
-    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[3].run(); n = findNode('2:2')!; }
+    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[4].run(); n = findNode('2:2')!; }
     await tab('selection');
     n.texts = n.texts.map((t) => (t === 'Continue' ? 'Pay now' : t === 'Continue to payment' ? 'Pay now' : t));
     if (n.preview) n.preview = n.preview.map(([k, t]) => [k, t === 'Continue' || t === 'Continue to payment' ? 'Pay now' : t]);

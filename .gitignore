@@ -1,6 +1,7 @@
 node_modules/
 dist/
-bridge/dist/
+bridge/dist/*
+!bridge/dist/cli.js
 .DS_Store
 *.log
 preview/dist/

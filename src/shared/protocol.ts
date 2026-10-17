@@ -18,8 +18,29 @@ export interface VaultInfo {
 export interface HealthResponse {
   ok: true;
   version: string;
-  vault: VaultInfo;
+  /** null until a vault has been chosen (first run). */
+  vault: VaultInfo | null;
+  platform: string;
+  /** Whether the bridge can open a native folder dialog on this machine. */
+  canPick: boolean;
 }
+
+/** A vault the bridge knows about: from Obsidian's own registry, the saved config, or the current one. */
+export interface VaultCandidate {
+  name: string;
+  path: string;
+  source: 'obsidian' | 'config' | 'current';
+  /** Obsidian currently has this vault open. */
+  open?: boolean;
+  lastOpened?: number;
+  exists: boolean;
+}
+
+export interface VaultsResponse { current: VaultInfo | null; vaults: VaultCandidate[] }
+export interface SetVaultRequest { path: string }
+export interface SetVaultResponse { ok: true; vault: VaultInfo }
+/** path → current hash, or null when the note no longer exists. */
+export interface HashesResponse { hashes: Record<string, string | null> }
 
 export interface SearchMatch {
   /** Snippet text with the matched ranges expressed as [start, end) offsets. */
@@ -96,7 +117,8 @@ export interface WriteNoteResponse {
 }
 
 export type VaultEvent =
-  | { type: 'hello'; vault: VaultInfo }
+  | { type: 'hello'; vault: VaultInfo | null }
+  | { type: 'vault-changed'; vault: VaultInfo | null }
   | { type: 'changed'; path: string; mtime: number; hash: string }
   | { type: 'created'; path: string; mtime: number; hash: string }
   | { type: 'deleted'; path: string };
@@ -104,7 +126,7 @@ export type VaultEvent =
 export interface BridgeError {
   ok: false;
   error: string;
-  code: 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'FORBIDDEN' | 'INTERNAL';
+  code: 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'FORBIDDEN' | 'NO_VAULT' | 'CANCELLED' | 'INTERNAL';
 }
 
 // ───────────────────────────── Figma link model ───────────────────────────

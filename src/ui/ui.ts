@@ -9,7 +9,7 @@ import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
 import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
   cardStatusOf, computeSyncState, DEFAULT_SETTINGS, obsidianSearchUrl, obsidianUrl,
-  type CardStatus, type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultEvent, type VaultInfo,
+  type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
 type Tab = 'search' | 'selection' | 'linked' | 'settings';
@@ -18,7 +18,8 @@ interface Toast { id: number; text: string; kind: 'info' | 'error' | 'success' }
 
 interface State {
   settings: Settings; fileKey?: string; fileName: string; editorType: string;
-  online: boolean; vault?: VaultInfo; healthError?: string;
+  online: boolean; vault?: VaultInfo; health?: HealthResponse; healthError?: string;
+  /** onboarding */ vaults: VaultCandidate[]; vaultsLoading: boolean; switchingTo?: string; picking: boolean; choosingVault: boolean;
   tab: Tab;
   query: string; results: SearchResult[]; total: number; tookMs: number; searching: boolean; active: number; recent: NoteListItem[];
   pickFor?: { nodeId: string; name: string };
@@ -30,7 +31,7 @@ interface State {
 
 const state: State = {
   settings: { ...DEFAULT_SETTINGS }, fileName: '', editorType: 'figma',
-  online: false, tab: 'search',
+  online: false, tab: 'search', vaults: [], vaultsLoading: false, picking: false, choosingVault: false,
   query: '', results: [], total: 0, tookMs: 0, searching: false, active: 0, recent: [],
   noteLoading: false,
   selection: { count: 0 }, linked: [], noteHashes: new Map(),
@@ -79,12 +80,12 @@ function render(): void {
 }
 
 function renderTop(): void {
-  const conn = !state.online ? 'off' : 'on';
-  const label = state.online ? (state.vault?.name ?? 'Connected') : 'Bridge offline';
+  const conn = !state.online ? 'off' : state.vault ? 'on' : 'busy';
+  const label = !state.online ? 'Bridge offline' : state.vault ? state.vault.name : 'Pick a vault';
   const tabs: Array<[Tab, string, number?]> = [['search', 'Search'], ['selection', 'Selection'], ['linked', 'Linked', state.linked.length]];
   $('top').innerHTML = `
     <div class="brand">${icons.logo}<span class="wordmark">Obspec</span><span class="ver">v1.0</span>
-      <button class="conn ${conn}" data-act="tab" data-arg="settings" title="${esc(state.online ? state.vault?.path ?? '' : state.healthError ?? 'Start the Obspec Bridge')}"><i class="dot"></i><span>${esc(label)}</span></button>
+      <button class="conn ${conn}" data-act="tab" data-arg="settings" title="${esc(state.online ? state.vault?.path ?? 'No vault chosen yet' : state.healthError ?? 'Start the Obspec Bridge')}"><i class="dot"></i><span>${esc(label)}</span></button>
       <button class="icon-btn" data-act="tab" data-arg="settings" aria-label="Settings" title="Settings">${icons.gear}</button>
     </div>
     <nav class="tabs" role="tablist">${tabs.map(([t, l, n]) => `<button class="tab" role="tab" aria-selected="${state.tab === t}" data-act="tab" data-arg="${t}">${l}${n ? `<span class="badge">${n}</span>` : ''}</button>`).join('')}</nav>`;
@@ -96,7 +97,9 @@ function renderSearch(): void {
   $('pickbar').innerHTML = state.pickFor ? `<div class="card" style="margin-top:0"><div class="card-head"><span class="ty">${icons.link}</span><div class="grow"><div class="name">Pick a note to link</div><div class="sub">${esc(state.pickFor.name)}</div></div><button class="icon-btn" data-act="cancel-pick" aria-label="Cancel">${icons.close}</button></div></div>` : '';
 
   const box = $('search-results');
-  if (!state.online) { box.innerHTML = setupCard(); return; }
+  const onboarding = !state.online || !state.vault || state.choosingVault;
+  (document.querySelector('.searchbar') as HTMLElement).hidden = onboarding;
+  if (onboarding) { box.innerHTML = renderOnboarding(); return; }
   if (!state.query.trim()) {
     box.innerHTML = state.recent.length
       ? `<div class="section-label">Recently edited</div><ul class="results">${state.recent.map((n, i) => resultRow({ path: n.path, title: n.title, folder: n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : '', tags: n.tags, mtime: n.mtime, score: 0, matchedIn: [], snippets: [] }, i, [])).join('')}</ul>`
@@ -121,14 +124,43 @@ function resultRow(r: SearchResult, i: number, terms: string[]): string {
   </button></li>`;
 }
 
-function setupCard(): string {
-  return `<div class="setup">
-    <h4>Connect your vault</h4>
-    <p>Obspec reads your notes through a tiny local server — nothing leaves your machine. Run it once in a terminal:</p>
-    <pre>npx obspec-bridge --vault "~/path/to/your vault"</pre>
-    <ol><li>Keep that terminal open.</li><li>Obspec connects to <code>${esc(state.settings.bridgeUrl)}</code> automatically.</li></ol>
-    <div class="row" style="display:flex;gap:6px"><button class="btn primary sm" data-act="retry">${icons.refresh} Retry</button><button class="btn ghost sm" data-act="tab" data-arg="settings">Change address</button></div>
-    ${state.healthError ? `<p style="margin-top:8px;color:var(--danger)">${esc(state.healthError)}</p>` : ''}
+const BRIDGE_CMD = 'npx github:Kamal007OLica/obspec';
+
+/** First-run flow: 1) start the local bridge, 2) pick the vault. Shown until both are true. */
+function renderOnboarding(): string {
+  const step1Done = state.online;
+  const h = state.health;
+  const vaults = state.vaults;
+  const step2 = !step1Done ? `<p class="muted">Then choose which Obsidian vault to search.</p>` : `
+    ${state.vaultsLoading ? `<div class="skeleton" style="padding:0"><div style="width:70%"></div><div style="width:50%"></div></div>` : ''}
+    ${vaults.length ? `<p class="muted">Vaults Obsidian knows about on this computer:</p>
+    <ul class="vaults">${vaults.map((v) => `<li><button class="vault${v.exists ? '' : ' gone'}${state.vault?.path === v.path ? ' current' : ''}" data-act="use-vault" data-arg="${esc(v.path)}" ${!v.exists || state.switchingTo ? 'disabled' : ''}>
+        <span class="vicon">${icons.note}</span>
+        <span class="vmain"><span class="vname">${esc(v.name)}</span><span class="vpath">${esc(v.path)}</span></span>
+        ${state.switchingTo === v.path ? '<i class="spin"></i>' : v.open ? '<span class="chip">open in Obsidian</span>' : state.vault?.path === v.path ? `<span class="chip linked">${icons.check} current</span>` : !v.exists ? '<span class="chip neutral">not found</span>' : ''}
+      </button></li>`).join('')}</ul>` : `<p class="muted">Obsidian hasn’t registered any vaults on this computer yet.</p>`}
+    <div class="vault-alt">
+      ${h?.canPick ? `<button class="btn secondary" data-act="browse-vault" ${state.picking || state.switchingTo ? 'disabled' : ''}>${state.picking ? '<i class="spin"></i> Choose the folder in the dialog…' : `${icons.frame} Browse for a folder…`}</button>` : ''}
+      <form class="vault-manual" id="vault-manual"><input name="path" placeholder="…or paste a folder path" aria-label="Vault folder path" /><button class="btn primary sm" type="submit" ${state.switchingTo ? 'disabled' : ''}>Use</button></form>
+    </div>
+    ${state.choosingVault && state.vault ? `<button class="btn ghost sm" data-act="cancel-choose">Keep ${esc(state.vault.name)}</button>` : ''}`;
+  return `<div class="onb">
+    <div class="onb-hero">${icons.logo}<div><h3>Connect your vault</h3><p>Two steps, once. Everything stays on this computer.</p></div></div>
+    <ol class="steps">
+      <li class="step${step1Done ? ' done' : ' active'}"><span class="n">${step1Done ? icons.check : '1'}</span><div class="step-body">
+        <b>Start the bridge</b>
+        ${step1Done ? `<p class="muted">Connected · Obspec Bridge v${esc(h?.version ?? '')}</p>` : `
+        <p class="muted">A tiny helper on your computer reads your notes for Figma. Open Terminal, paste this, press return and leave it open:</p>
+        <div class="cmd"><code>${esc(BRIDGE_CMD)}</code><button class="btn ghost sm" data-act="copy-cmd" title="Copy">Copy</button></div>
+        <p class="muted">Have the Obspec folder? Double-click <b>Obspec Bridge.command</b> instead.</p>
+        <p class="waiting"><i class="spin"></i> Waiting for the bridge… <button class="link-btn" data-act="retry">retry now</button></p>
+        ${state.healthError ? `<p class="muted" style="color:var(--danger)">${esc(state.healthError)}</p>` : ''}`}
+      </div></li>
+      <li class="step${step1Done ? (state.vault && !state.choosingVault ? ' done' : ' active') : ''}"><span class="n">2</span><div class="step-body">
+        <b>Pick your vault</b>
+        ${step2}
+      </div></li>
+    </ol>
   </div>`;
 }
 
@@ -193,8 +225,8 @@ function renderSelection(): void {
         : `
           <div class="card-row"><span class="lbl">Note</span><span class="val" style="color:var(--text-3)">Not linked to any note</span></div>
           <div class="card-actions">
-            <button class="btn primary" data-act="push" data-arg="${n.id}" ${busy('push') || !state.online ? 'disabled' : ''} title="Create a note in ${esc(state.settings.pushFolder || 'the vault root')}">${busy('push') ? '<i class="spin"></i>' : icons.push} Send to Obsidian</button>
-            <button class="btn secondary" data-act="pick" data-arg="${n.id}" ${!state.online ? 'disabled' : ''}>${icons.link} Link to a note…</button>
+            <button class="btn primary" data-act="push" data-arg="${n.id}" ${busy('push') || !state.online || !state.vault ? 'disabled' : ''} title="Create a note in ${esc(state.settings.pushFolder || 'the vault root')}">${busy('push') ? '<i class="spin"></i>' : icons.push} Send to Obsidian</button>
+            <button class="btn secondary" data-act="pick" data-arg="${n.id}" ${!state.online || !state.vault ? 'disabled' : ''}>${icons.link} Link to a note…</button>
           </div>`}
       </div>
     </div>
@@ -221,6 +253,8 @@ function renderLinked(): void {
 function renderSettings(): void {
   const s = state.settings;
   $('view-settings').innerHTML = `<div class="scroll"><form class="form" id="settings-form">
+    <label>Vault</label>
+    <div class="card" style="margin:6px 0 0"><div class="card-head"><span class="ty">${icons.note}</span><div class="grow"><div class="name">${esc(state.vault?.name ?? 'No vault chosen')}</div><div class="sub" title="${esc(state.vault?.path ?? '')}">${state.vault ? `${esc(state.vault.path)} · ${state.vault.notes} notes` : 'Pick one to start searching'}</div></div><button class="btn secondary sm" type="button" data-act="change-vault" ${state.online ? '' : 'disabled'}>Change…</button></div></div>
     <label for="s-url">Bridge address</label><input id="s-url" name="bridgeUrl" value="${esc(s.bridgeUrl)}" placeholder="http://localhost:27123" />
     <div class="help">Where the Obspec Bridge is listening. Start it with <code>npx obspec-bridge --vault &lt;path&gt;</code>. Figma only lets this plugin reach <code>http://localhost:27123</code>, so keep that host and port unless you also edit the manifest.</div>
     <label for="s-token">Token <span style="font-weight:400;color:var(--text-3)">(optional)</span></label><input id="s-token" name="token" value="${esc(s.token)}" placeholder="Only if you started the bridge with --token" />
@@ -253,17 +287,20 @@ async function withBusy<T>(k: string, fn: () => Promise<T>): Promise<T | undefin
   finally { state.busy.delete(k); render(); }
 }
 function errMsg(e: unknown): string {
-  if (e instanceof BridgeClientError) return e.code === 'NETWORK' ? 'Can’t reach the Obspec Bridge — is it running?' : e.message;
+  if (e instanceof BridgeClientError) {
+    if (e.code === 'NETWORK') return 'Can’t reach the Obspec Bridge — is it running?';
+    if (e.code === 'NO_VAULT') { state.vault = undefined; render(); return 'Pick a vault first'; }
+    return e.message;
+  }
   return (e as Error)?.message || String(e);
 }
 
 async function checkHealth(): Promise<void> {
   try {
     const h = await bridge.health();
-    state.vault = h.vault; state.online = true; state.healthError = undefined;
-    if (state.settings.vaultName !== h.vault.name) { state.settings.vaultName = h.vault.name; send({ type: 'save-settings', settings: state.settings }); }
-    void loadRecent();
-    void refreshHashes();
+    state.health = h; state.vault = h.vault ?? undefined; state.online = true; state.healthError = undefined;
+    if (h.vault && state.settings.vaultName !== h.vault.name) { state.settings.vaultName = h.vault.name; send({ type: 'save-settings', settings: state.settings }); }
+    if (h.vault) { void loadRecent(); void refreshHashes(); } else void loadVaults();
   } catch (e) {
     state.online = false; state.healthError = errMsg(e);
   }
@@ -274,11 +311,53 @@ async function loadRecent(): Promise<void> {
   try { state.recent = (await bridge.list(12)).notes; if (!state.query) render(); } catch { /* offline */ }
 }
 
+async function loadVaults(): Promise<void> {
+  state.vaultsLoading = true; render();
+  try { state.vaults = (await bridge.vaults()).vaults; } catch (e) { toast(errMsg(e), 'error'); }
+  state.vaultsLoading = false; render();
+}
+
+async function useVault(path: string): Promise<void> {
+  state.switchingTo = path; render();
+  try {
+    const r = await bridge.setVault(path);
+    await connectedToVault(r.vault);
+  } catch (e) { toast(errMsg(e), 'error'); }
+  state.switchingTo = undefined; render();
+}
+
+async function browseVault(): Promise<void> {
+  state.picking = true; render();
+  try {
+    const r = await bridge.pickVault();
+    if (r) await connectedToVault(r.vault);
+  } catch (e) { toast(errMsg(e), 'error'); }
+  state.picking = false; render();
+}
+
+async function connectedToVault(v: VaultInfo): Promise<void> {
+  state.vault = v; state.choosingVault = false; state.settings.vaultName = v.name;
+  send({ type: 'save-settings', settings: state.settings });
+  toast(`Connected to ${v.name} · ${v.notes} notes`, 'success');
+  state.recent = []; state.results = []; state.query = ''; input.value = '';
+  await Promise.all([loadRecent(), refreshHashes(), loadVaults()]);
+  render(); input.focus();
+}
+
+async function copyText(text: string): Promise<void> {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast('Copied — paste it in Terminal');
+}
+
 let searchAbort: AbortController | undefined;
 let searchTimer: number | undefined;
 function scheduleSearch(): void {
   window.clearTimeout(searchTimer);
-  searchTimer = window.setTimeout(() => void runSearch(), 110);
+  searchTimer = window.setTimeout(() => void runSearch(), 80);
 }
 async function runSearch(): Promise<void> {
   searchAbort?.abort();
@@ -287,7 +366,7 @@ async function runSearch(): Promise<void> {
   const ctl = new AbortController(); searchAbort = ctl;
   state.searching = true; render();
   try {
-    const r = await bridge.search(q, 50, ctl.signal);
+    const r = await bridge.search(q, 30, ctl.signal);
     if (ctl.signal.aborted) return;
     state.results = r.results; state.total = r.total; state.tookMs = r.tookMs; state.active = 0;
   } catch (e) {
@@ -416,6 +495,11 @@ app.addEventListener('click', (e) => {
     case 'back': closeNote(); break;
     case 'hint': { const h = arg === '"phrase"' ? '"' : arg; state.query = (state.query ? state.query.replace(/\s*$/, ' ') : '') + h; input.value = state.query; input.focus(); scheduleSearch(); render(); break; }
     case 'retry': void checkHealth(); break;
+    case 'copy-cmd': void copyText(BRIDGE_CMD); break;
+    case 'use-vault': void useVault(arg); break;
+    case 'browse-vault': void browseVault(); break;
+    case 'change-vault': state.choosingVault = true; state.tab = 'search'; state.note = undefined; void loadVaults(); render(); break;
+    case 'cancel-choose': state.choosingVault = false; render(); input.focus(); break;
     case 'open-obsidian': send({ type: 'open-url', url: obsidianUrl(state.settings.vaultName, arg) }); break;
     case 'search-obsidian': send({ type: 'open-url', url: obsidianSearchUrl(state.settings.vaultName, state.query.trim()) }); break;
     case 'download-spec': if (state.note) downloadSpec(state.note); break;
@@ -444,7 +528,11 @@ app.addEventListener('click', (e) => {
   e.preventDefault();
   if (a.getAttribute('href') !== '#') send({ type: 'open-url', url: a.href });
 });
-app.addEventListener('submit', (e) => { const f = e.target as HTMLFormElement; if (f.id === 'settings-form') { e.preventDefault(); saveSettings(f); } });
+app.addEventListener('submit', (e) => {
+  const f = e.target as HTMLFormElement;
+  if (f.id === 'settings-form') { e.preventDefault(); saveSettings(f); }
+  if (f.id === 'vault-manual') { e.preventDefault(); const p = String(new FormData(f).get('path') ?? '').trim(); if (p) void useVault(p); }
+});
 app.addEventListener('keydown', (e) => {
   if ((e.target as HTMLElement).matches('.linked-item') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); (e.target as HTMLElement).click(); }
 });
@@ -491,7 +579,7 @@ window.addEventListener('message', (e) => {
 
 bridge.onStatus((online) => { if (online !== state.online) { state.online = online; if (online) void checkHealth(); else render(); } });
 bridge.onEvent((ev: VaultEvent) => {
-  if (ev.type === 'hello') { if (!state.online || state.vault?.notes !== ev.vault.notes) void checkHealth(); return; }
+  if (ev.type === 'hello' || ev.type === 'vault-changed') { if (!state.online || (ev.vault?.path ?? null) !== (state.vault?.path ?? null) || ev.vault?.notes !== state.vault?.notes) void checkHealth(); return; }
   if (ev.type === 'deleted') state.noteHashes.set(ev.path, undefined);
   else state.noteHashes.set(ev.path, ev.hash);
   if (state.selection.node?.link?.path === ev.path) state.selectionNoteHash = ev.type === 'deleted' ? null : ev.hash;

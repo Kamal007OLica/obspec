@@ -2,7 +2,7 @@
  * HTTP + SSE client for the Obspec Bridge. Runs inside the plugin UI iframe
  * (the only place a Figma plugin can use fetch).
  */
-import type { BridgeError, HealthResponse, Note, NoteListItem, PatchNoteRequest, SearchResponse, VaultEvent, WriteNoteRequest, WriteNoteResponse } from '../shared/protocol';
+import type { BridgeError, HashesResponse, HealthResponse, Note, NoteListItem, PatchNoteRequest, SearchResponse, SetVaultResponse, VaultEvent, VaultsResponse, WriteNoteRequest, WriteNoteResponse } from '../shared/protocol';
 
 export class BridgeClientError extends Error {
   constructor(message: string, public code: BridgeError['code'] | 'NETWORK' | 'ABORTED', public status = 0) { super(message); }
@@ -37,13 +37,22 @@ export class BridgeClient {
   write(body: WriteNoteRequest): Promise<WriteNoteResponse> { return this.req('PUT', '/note', body); }
   patch(body: PatchNoteRequest): Promise<WriteNoteResponse> { return this.req('PATCH', '/note', body); }
 
-  /** Fetch several notes' current hashes at once (for sync state). Missing notes map to undefined. */
+  /** Current hashes for several notes in one round trip. Missing notes map to undefined. */
   async hashes(paths: string[]): Promise<Map<string, string | undefined>> {
-    const out = new Map<string, string | undefined>();
-    await Promise.all([...new Set(paths)].map(async (p) => {
-      try { out.set(p, (await this.note(p)).hash); } catch (e) { if ((e as BridgeClientError).code === 'NOT_FOUND') out.set(p, undefined); else throw e; }
-    }));
-    return out;
+    const unique = [...new Set(paths)];
+    if (!unique.length) return new Map();
+    const qs = unique.map((p) => `path=${encodeURIComponent(p)}`).join('&');
+    const r = await this.req<HashesResponse>('GET', `/hashes?${qs}`);
+    return new Map(unique.map((p) => [p, r.hashes[p] ?? undefined]));
+  }
+
+  // ── vault selection (onboarding) ──
+  vaults(): Promise<VaultsResponse> { return this.req('GET', '/vaults'); }
+  setVault(path: string): Promise<SetVaultResponse> { return this.req('POST', '/vault', { path }); }
+  /** Opens the OS folder dialog on the bridge's machine; resolves null when the user cancels. */
+  async pickVault(): Promise<SetVaultResponse | null> {
+    try { return await this.req<SetVaultResponse>('POST', '/vault/pick', {}); }
+    catch (e) { if ((e as BridgeClientError).code === 'CANCELLED') return null; throw e; }
   }
 
   // ── live events ──

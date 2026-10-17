@@ -32,6 +32,19 @@ await evaluate(`localStorage.removeItem('obspec:settings'); localStorage.setItem
 await sleep(2500);
 await shot('00-idle.png');
 
+// Onboarding stills: step 1 (bridge offline) and step 2 (pick a vault). The demo vault is restored afterwards.
+const demoVault = path.resolve('preview/.work/Obspec Demo Vault');
+const setDemoVault = () => evaluate(`fetch('http://127.0.0.1:27123/vault', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: ${JSON.stringify(demoVault)} }) }).then(r => r.ok)`);
+if (!(await setDemoVault())) throw new Error('could not select the demo vault — is the preview server running?');
+await evaluate(`localStorage.setItem('obspec:settings', JSON.stringify({ bridgeUrl: 'http://127.0.0.1:1' })); location.reload(); true`);
+await sleep(2500);
+await shot('00a-onboarding-step1-offline.png');
+await evaluate(`localStorage.removeItem('obspec:settings'); fetch('http://127.0.0.1:27123/vault', { method: 'DELETE' }).then(() => location.reload()); true`);
+await sleep(3000);
+await shot('00b-onboarding-step2-pick-vault.png');
+await setDemoVault();
+await sleep(1500);
+
 const titles = await evaluate(`[...document.querySelectorAll('.sc')].map(b=>b.querySelector('div').textContent)`);
 const results = [];
 for (let i = 0; i < titles.length; i++) {
@@ -40,10 +53,10 @@ for (let i = 0; i < titles.length; i++) {
   try {
     await evaluate(`window.obspec.runScenario(${i}).then(()=> 'ok')`);
     await sleep(600);
-    await shot(`0${i + 1}-${titles[i].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`);
+    await shot(`0${i}-${titles[i].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`);
     results.push({ scenario: titles[i], ok: true, ms: Date.now() - t0 });
   } catch (err) {
-    await shot(`0${i + 1}-FAILED.png`);
+    await shot(`0${i}-FAILED.png`);
     results.push({ scenario: titles[i], ok: false, error: err.message, ms: Date.now() - t0 });
   }
 }
@@ -55,7 +68,7 @@ await shot('08-note-view.png');
 // Dark theme snapshot of the plugin for the record.
 await evaluate(`localStorage.setItem('obspec:preview-theme','dark'); document.getElementById('theme').click(); true`);
 await sleep(600);
-await shot('06-dark-theme.png');
+await shot('09-dark-theme.png');
 
 const logs = await evaluate(`[...document.querySelectorAll('#log li')].map(l=>l.textContent)`);
 const pluginErrors = events.filter((e) => e.method === 'Runtime.exceptionThrown').map((e) => e.params.exceptionDetails.exception?.description ?? e.params.exceptionDetails.text);

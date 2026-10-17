@@ -1,8 +1,8 @@
 {
   "name": "obspec",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Obspec — the Obsidian ↔ Figma bridge. Search your vault from Figma, drop notes onto the canvas as spec cards, and keep design and notes in sync.",
+  "description": "Obspec \u2014 the Obsidian \u2194 Figma bridge. Search your vault from Figma, drop notes onto the canvas as spec cards, and keep design and notes in sync.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -12,7 +12,8 @@
     "preview": "node scripts/build.mjs && node preview/serve.mjs",
     "test": "node scripts/test.mjs",
     "emulate": "node scripts/emulate.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p bridge/tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p bridge/tsconfig.json --noEmit",
+    "prepare": "node scripts/build.mjs"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.100.0",
@@ -20,5 +21,18 @@
     "esbuild": "^0.24.0",
     "typescript": "^5.6.0"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "obspec-bridge": "bridge/bin/obspec-bridge"
+  },
+  "files": [
+    "bridge/bin",
+    "bridge/dist/cli.js",
+    "manifest.json",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
 }

@@ -1,13 +1,14 @@
 /**
  * Vault indexer. Reads every .md in the vault into memory, keeps the index
- * fresh with fs.watch (recursive on macOS/Windows, polled fallback elsewhere),
- * and emits change events to subscribers.
+ * fresh with fs.watch, and maintains the secondary indexes that make large
+ * vaults (thousands of notes) feel instant: basename lookup for wikilinks,
+ * inbound-link sets for backlinks, and a recency-sorted listing.
  */
 import { promises as fs, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { fnv1a, folderFromPath, titleFromPath, type Note, type NoteLink, type VaultEvent, type VaultInfo } from '../../src/shared/protocol';
-import { countWords, extractTags, extractWikilinks, firstHeading, parseFrontmatter } from './markdown';
+import { fnv1a, folderFromPath, titleFromPath, type Note, type NoteLink, type NoteListItem, type VaultEvent, type VaultInfo } from '../../src/shared/protocol';
+import { countWords, extractTags, extractWikilinks, parseFrontmatter } from './markdown';
 
 export interface IndexedNote {
   path: string;
@@ -19,6 +20,8 @@ export interface IndexedNote {
   bodyLower: string;
   titleLower: string;
   pathLower: string;
+  /** Lower-case file name without extension — the key wikilinks resolve by. */
+  baseLower: string;
   tags: string[];
   outlinks: string[]; // raw wikilink targets
   mtime: number;
@@ -32,7 +35,12 @@ export class Vault extends EventEmitter {
   readonly root: string;
   readonly name: string;
   private notes = new Map<string, IndexedNote>();
+  private byBase = new Map<string, Set<IndexedNote>>();
+  /** wikilink target key (base lower) → paths of notes that link to it */
+  private inbound = new Map<string, Set<string>>();
+  private recent: NoteListItem[] | null = null;
   private watcher?: FSWatcher;
+  private poller?: NodeJS.Timeout;
   private indexedAt = 0;
   private pending = new Map<string, NodeJS.Timeout>();
   /** Writes we made ourselves — suppress the echo from the watcher. */
@@ -49,10 +57,15 @@ export class Vault extends EventEmitter {
   }
 
   all(): IterableIterator<IndexedNote> { return this.notes.values(); }
+  get size(): number { return this.notes.size; }
 
   async index(): Promise<void> {
-    this.notes.clear();
-    for await (const rel of walk(this.root)) await this.load(rel, false);
+    this.notes.clear(); this.byBase.clear(); this.inbound.clear(); this.recent = null;
+    const files: string[] = [];
+    for await (const rel of walk(this.root)) files.push(rel);
+    // Read in parallel batches: thousands of small files, IO-bound.
+    const BATCH = 64;
+    for (let i = 0; i < files.length; i += BATCH) await Promise.all(files.slice(i, i + BATCH).map((rel) => this.load(rel, false)));
     this.indexedAt = Date.now();
   }
 
@@ -61,29 +74,46 @@ export class Vault extends EventEmitter {
       this.watcher = watch(this.root, { recursive: true }, (_event, filename) => {
         if (!filename) return;
         const rel = String(filename).split(path.sep).join('/');
-        if (!rel.endsWith('.md') || rel.split('/').some((p) => IGNORED_DIRS.has(p))) return;
-        // Debounce bursts (editors write several times per save).
+        if (!rel.toLowerCase().endsWith('.md') || rel.split('/').some((p) => IGNORED_DIRS.has(p))) return;
         clearTimeout(this.pending.get(rel));
         this.pending.set(rel, setTimeout(() => { this.pending.delete(rel); void this.refresh(rel); }, 80));
       });
+      this.watcher.on('error', (err) => console.warn('[obspec] watcher error:', err.message));
     } catch (err) {
       console.warn('[obspec] fs.watch unavailable, falling back to 2s polling:', (err as Error).message);
-      setInterval(() => void this.poll(), 2000).unref();
+      this.poller = setInterval(() => void this.poll(), 2000);
+      this.poller.unref();
     }
   }
 
-  stop(): void { this.watcher?.close(); }
+  stop(): void { this.watcher?.close(); if (this.poller) clearInterval(this.poller); for (const t of this.pending.values()) clearTimeout(t); }
 
   get(rel: string): IndexedNote | undefined { return this.notes.get(normalize(rel)); }
 
-  /** Resolve a wikilink target the way Obsidian does: exact path, then by basename anywhere. */
+  /** Current content hash, or null when the note doesn't exist. */
+  hashOf(rel: string): string | null { return this.notes.get(normalize(rel))?.hash ?? null; }
+
+  /** Recency-sorted listing, cached until the next change. */
+  listRecent(limit: number): NoteListItem[] {
+    if (!this.recent) {
+      this.recent = [...this.notes.values()].sort((a, b) => b.mtime - a.mtime)
+        .map((n) => ({ path: n.path, title: n.title, mtime: n.mtime, tags: n.tags, hash: n.hash }));
+    }
+    return this.recent.slice(0, limit);
+  }
+
+  /** Resolve a wikilink target the way Obsidian does: exact path first, then by file name anywhere. */
   resolveLink(target: string): IndexedNote | undefined {
     const t = normalize(target.endsWith('.md') ? target : `${target}.md`);
     const exact = this.notes.get(t);
     if (exact) return exact;
-    const base = t.split('/').pop()!.toLowerCase();
-    for (const n of this.notes.values()) if (n.pathLower.split('/').pop() === base) return n;
-    return undefined;
+    const set = this.byBase.get(baseKey(t));
+    if (!set || set.size === 0) return undefined;
+    if (set.size === 1) return set.values().next().value;
+    // Ambiguous short link: prefer the shallowest path (what Obsidian does by default).
+    let best: IndexedNote | undefined;
+    for (const n of set) if (!best || n.path.split('/').length < best.path.split('/').length) best = n;
+    return best;
   }
 
   toNote(n: IndexedNote): Note {
@@ -93,9 +123,10 @@ export class Vault extends EventEmitter {
       outlinks.push(r ? { path: r.path, title: r.title } : { path: target, title: target });
     }
     const backlinks: NoteLink[] = [];
-    for (const other of this.notes.values()) {
-      if (other.path === n.path) continue;
-      if (other.outlinks.some((t) => this.resolveLink(t)?.path === n.path)) backlinks.push({ path: other.path, title: other.title });
+    for (const src of this.inbound.get(n.baseLower) ?? []) {
+      if (src === n.path) continue;
+      const s = this.notes.get(src);
+      if (s && s.outlinks.some((t) => this.resolveLink(t) === n)) backlinks.push({ path: s.path, title: s.title });
     }
     backlinks.sort((a, b) => a.title.localeCompare(b.title));
     return {
@@ -119,12 +150,14 @@ export class Vault extends EventEmitter {
     return { note: this.toNote(note!), created: !existing };
   }
 
+  // ───────────────────────────── internals ─────────────────────────────
+
   private async refresh(rel: string): Promise<void> {
     const abs = path.join(this.root, rel);
     try {
       await fs.access(abs);
     } catch {
-      if (this.notes.delete(rel)) this.emit('event', { type: 'deleted', path: rel } satisfies VaultEvent);
+      if (this.remove(rel)) this.emit('event', { type: 'deleted', path: rel } satisfies VaultEvent);
       return;
     }
     const before = this.notes.get(rel);
@@ -152,15 +185,40 @@ export class Vault extends EventEmitter {
     const title = (typeof frontmatter.title === 'string' && frontmatter.title) || titleFromPath(rel);
     const note: IndexedNote = {
       path: rel, title, folder: folderFromPath(rel), frontmatter, content, body,
-      bodyLower: body.toLowerCase(), titleLower: title.toLowerCase(), pathLower: rel.toLowerCase(),
+      bodyLower: body.toLowerCase(), titleLower: title.toLowerCase(), pathLower: rel.toLowerCase(), baseLower: baseKey(rel),
       tags: extractTags(body, frontmatter), outlinks: extractWikilinks(body),
       mtime: Math.round(stat.mtimeMs), hash: fnv1a(content), words: countWords(body),
     };
-    void firstHeading; // (title from H1 is intentionally not used: Obsidian titles are filenames)
+    this.remove(rel, false);
     this.notes.set(rel, note);
+    addTo(this.byBase, note.baseLower, note);
+    for (const t of note.outlinks) addTo(this.inbound, baseKey(t.endsWith('.md') ? t : `${t}.md`), rel);
+    this.recent = null;
     if (emit) this.emit('event', { type: eventType, path: rel, mtime: note.mtime, hash: note.hash } satisfies VaultEvent);
     return note;
   }
+
+  private remove(rel: string, invalidate = true): boolean {
+    const n = this.notes.get(rel);
+    if (!n) return false;
+    this.notes.delete(rel);
+    this.byBase.get(n.baseLower)?.delete(n);
+    for (const t of n.outlinks) this.inbound.get(baseKey(t.endsWith('.md') ? t : `${t}.md`))?.delete(rel);
+    if (invalidate) this.recent = null;
+    return true;
+  }
+}
+
+function addTo<K, V>(map: Map<K, Set<V>>, key: K, value: V): void {
+  let set = map.get(key);
+  if (!set) { set = new Set(); map.set(key, set); }
+  set.add(value);
+}
+
+/** "Design/System/Button.md" → "button" */
+function baseKey(rel: string): string {
+  const base = rel.split('/').pop() ?? rel;
+  return base.replace(/\.md$/i, '').toLowerCase();
 }
 
 async function* walk(root: string, rel = ''): AsyncGenerator<string> {

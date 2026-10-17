@@ -39,7 +39,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true }));
     }
     if (req.method === 'POST' && url.pathname === '/__obsidian/reset') {
-      await resetVault(); await bridge.vault.index();
+      await resetVault(); await bridge.useVault(WORK_VAULT);
       res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true }));
     }
     if (req.method === 'GET' && url.pathname === '/__obsidian/raw') {

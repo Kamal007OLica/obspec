@@ -51,17 +51,20 @@ Figma plugin (UI + sandbox)  ⇄  Obspec Bridge (localhost:27123)  ⇄  your Obs
 
 ## Run it
 
+**1. Start the bridge** (a tiny local helper that reads your vault for Figma). Pick whichever is easiest:
+
 ```bash
-npm install
-npm run build
-
-# 1. start the bridge against your vault (keep the terminal open)
-node bridge/dist/cli.js --vault "~/Documents/My Vault"      # or: npx obspec-bridge --vault …
-
-# 2. in Figma: Plugins → Development → Import plugin from manifest… → pick manifest.json
+npx github:Kamal007OLica/obspec          # no install; builds on first run
 ```
+or, with this folder on your Mac, double-click **`Obspec Bridge.command`**. From a clone, `npm install && npm run build && npm run bridge`.
 
-The plugin connects to `http://localhost:27123`, the only address Figma allows it to reach (see `networkAccess` in `manifest.json`). Keep the bridge on that port. Add `--token <secret>` to the bridge and paste it in Settings if you want auth on top of the loopback bind.
+With no arguments the bridge reuses the vault you picked last time, else the vault Obsidian currently has open. `--vault <path>` forces one.
+
+**2. Import the plugin once.** Figma desktop → Plugins → Development → *Import plugin from manifest…* → `manifest.json`.
+
+**3. Open Obspec.** The first run shows a two-step onboarding: it waits for the bridge, then lists the vaults Obsidian knows about on your computer. Click one, or *Browse for a folder…* (native dialog), or paste a path. Change it any time under ⚙ Settings → Vault.
+
+The plugin talks to `http://localhost:27123`, the only address Figma allows (see `networkAccess` in `manifest.json`). Add `--token <secret>` to the bridge and paste it in Settings if you want auth on top of the loopback bind.
 
 ## Local preview (no Figma needed)
 
@@ -104,7 +107,12 @@ tests/                 node:test suites (run via scripts/test.mjs)
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/health` | vault name, path, note count |
+| GET | `/health` | current vault (or `null` on first run), platform, whether a folder dialog is available |
+| GET | `/vaults` | vaults from Obsidian's registry + saved config, most recently opened first |
+| POST | `/vault` | `{ path }` — switch to (and index) a vault; remembered in `~/.obspec/config.json` |
+| POST | `/vault/pick` | opens the OS folder dialog, then switches to the chosen folder |
+| DELETE | `/vault` | forget the current vault |
+| GET | `/hashes?path=a&path=b` | current hashes for many notes in one call (sync status) |
 | GET | `/search?q=&limit=` | ranked results with snippets and highlight ranges |
 | GET | `/note?path=` | full note incl. frontmatter, outlinks, backlinks, content hash |
 | GET | `/notes?limit=` | recent notes (path, title, mtime, tags, hash) |
@@ -126,6 +134,7 @@ Figma Specs are markdown-based, and Figma makes a native Spec out of any `.md` f
 
 - `figma.fileKey` is only exposed to private/org plugins; without it the note's `figma_url` is omitted (everything else works).
 - Spec cards are a readable mirror, not a markdown renderer: headings, lists, quotes, code and tables are kept; images become `[image: …]`.
+- Large vaults: a 6,000-note vault indexes in well under a second; search is ~10 ms and note open is instant thanks to basename and backlink indexes (an earlier version scanned the whole vault per note).
 - The bridge binds to `127.0.0.1` and only allows the Figma plugin origin (`null`), `*.figma.com` and localhost via CORS.
 
 ## Website
