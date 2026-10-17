@@ -250,7 +250,15 @@ export interface Settings {
   /** Remembered plugin window size (set by dragging the corner grip). */
   windowWidth?: number;
   windowHeight?: number;
+  /** How search results are laid out. */
+  searchView?: SearchView;
+  /** 'auto' follows Figma's theme; 'light' / 'dark' override it. */
+  theme?: ThemeMode;
 }
+
+export type ThemeMode = 'auto' | 'light' | 'dark';
+
+export type SearchView = 'cards' | 'list' | 'compact';
 
 export const DEFAULT_SETTINGS: Settings = {
   bridgeUrl: 'http://localhost:27123',

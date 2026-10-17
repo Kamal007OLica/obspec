@@ -206,7 +206,8 @@ function applyTheme(): void {
   const doc = iframe.contentDocument; if (!doc) return;
   doc.documentElement.className = dark ? 'figma-dark' : 'figma-light';
   let style = doc.getElementById('figma-theme-vars'); if (!style) { style = doc.createElement('style'); style.id = 'figma-theme-vars'; doc.head.appendChild(style); }
-  style.textContent = `:root{${Object.entries(THEMES[dark ? 'dark' : 'light']).map(([k, v]) => `--figma-color-${k}:${v}`).join(';')}}`;
+  // Figma scopes its variables to the html class, so a theme override inside the plugin works the same way here.
+  style.textContent = (['light', 'dark'] as const).map((t) => `html.figma-${t}{${Object.entries(THEMES[t]).map(([k, v]) => `--figma-color-${k}:${v}`).join(';')}}`).join('');
   iframe.style.background = THEMES[dark ? 'dark' : 'light'].bg;
 }
 document.getElementById('theme')!.addEventListener('click', () => { localStorage.setItem('obspec:preview-theme', document.documentElement.classList.contains('dark') ? 'light' : 'dark'); applyTheme(); });

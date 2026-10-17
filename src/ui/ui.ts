@@ -9,7 +9,7 @@ import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
 import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
   cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl,
-  type CardImage, type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
+  type CardImage, type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SearchView, type SelectionSummary, type Settings, type SyncState, type ThemeMode, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
 type Tab = 'search' | 'selection' | 'linked' | 'settings';
@@ -87,6 +87,7 @@ function renderTop(): void {
   $('top').innerHTML = `
     <div class="brand">${icons.logo}<span class="wordmark">Obspec</span><span class="ver">v1.0</span>
       <button class="conn ${conn}" data-act="tab" data-arg="settings" title="${esc(state.online ? state.vault?.path ?? 'No vault chosen yet' : state.healthError ?? 'Start the Obspec Bridge')}"><i class="dot"></i><span>${esc(label)}</span></button>
+      <button class="icon-btn" data-act="toggle-theme" aria-label="${isDark() ? 'Switch to light theme' : 'Switch to dark theme'}" title="${isDark() ? 'Switch to light theme' : 'Switch to dark theme'}${(state.settings.theme ?? 'auto') === 'auto' ? ' (currently following Figma)' : ''}">${isDark() ? icons.sun : icons.moon}</button>
       <button class="icon-btn" data-act="tab" data-arg="settings" aria-label="Settings" title="Settings">${icons.gear}</button>
     </div>
     <nav class="tabs" role="tablist">${tabs.map(([t, l, n]) => `<button class="tab" role="tab" aria-selected="${state.tab === t}" data-act="tab" data-arg="${t}">${l}${n ? `<span class="badge">${n}</span>` : ''}</button>`).join('')}</nav>`;
@@ -94,7 +95,9 @@ function renderTop(): void {
 
 function renderSearch(): void {
   if (input.value !== state.query) input.value = state.query;
-  $('hints').innerHTML = ['tag:', 'path:', '"phrase"', '-exclude'].map((h) => `<button class="hint${state.query.includes(h.replace(/"phrase"/, '"')) ? ' active' : ''}" data-act="hint" data-arg="${esc(h)}" title="Add ${esc(h)} to your query">${esc(h)}</button>`).join('');
+  const view = currentView();
+  $('hints').innerHTML = ['tag:', 'path:', '"phrase"', '-exclude'].map((h) => `<button class="hint${state.query.includes(h.replace(/"phrase"/, '"')) ? ' active' : ''}" data-act="hint" data-arg="${esc(h)}" title="Add ${esc(h)} to your query">${esc(h)}</button>`).join('')
+    + `<span class="views" role="radiogroup" aria-label="Result layout">${([['cards', icons.grid, 'Cards'], ['list', icons.list, 'List with thumbnails'], ['compact', icons.rows, 'Compact list']] as Array<[SearchView, string, string]>).map(([v, ic, label]) => `<button class="view${view === v ? ' on' : ''}" role="radio" aria-checked="${view === v}" data-act="view" data-arg="${v}" title="${label}">${ic}</button>`).join('')}</span>`;
   $('pickbar').innerHTML = state.pickFor ? `<div class="card" style="margin-top:0"><div class="card-head"><span class="ty">${icons.link}</span><div class="grow"><div class="name">Pick a note to link</div><div class="sub">${esc(state.pickFor.name)}</div></div><button class="icon-btn" data-act="cancel-pick" aria-label="Cancel">${icons.close}</button></div></div>` : '';
 
   const box = $('search-results');
@@ -103,7 +106,7 @@ function renderSearch(): void {
   if (onboarding) { box.innerHTML = renderOnboarding(); return; }
   if (!state.query.trim()) {
     box.innerHTML = state.recent.length
-      ? `<div class="section-label">Recently edited</div><ul class="results">${state.recent.map((n, i) => resultRow({ path: n.path, title: n.title, folder: n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : '', tags: n.tags, mtime: n.mtime, score: 0, matchedIn: [], snippets: [], thumbnail: n.thumbnail }, i, [])).join('')}</ul>`
+      ? `<div class="section-label">Recently edited</div><ul class="results ${view}">${state.recent.map((n, i) => resultRow({ path: n.path, title: n.title, folder: n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : '', tags: n.tags, mtime: n.mtime, score: 0, matchedIn: [], snippets: [], thumbnail: n.thumbnail }, i, [])).join('')}</ul>`
       : emptyState(icons.empty, 'Your vault is empty', 'Create a note in Obsidian and it shows up here instantly.');
     return;
   }
@@ -111,20 +114,43 @@ function renderSearch(): void {
   if (!state.results.length) { box.innerHTML = emptyState(icons.empty, `Nothing for “${esc(state.query)}”`, 'Try fewer words, or filter with tag: and path:.'); return; }
   const terms = state.query.toLowerCase().match(/"([^"]+)"|(\S+)/g)?.map((t) => t.replace(/"/g, '')) ?? [];
   box.innerHTML = `<div class="section-label">Results<span class="count">${state.total} note${state.total === 1 ? '' : 's'} · ${state.tookMs} ms</span><button class="link-btn" data-act="search-obsidian" title="Run this search in Obsidian so the matches light up in your vault">${icons.external} in Obsidian</button></div>
-    <ul class="results">${state.results.map((r, i) => resultRow(r, i, terms)).join('')}</ul>`;
+    <ul class="results ${view}">${state.results.map((r, i) => resultRow(r, i, terms)).join('')}</ul>`;
   box.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
 }
+
+function currentView(): SearchView { return state.settings.searchView ?? 'list'; }
 
 function resultRow(r: SearchResult, i: number, terms: string[]): string {
   const linkedCount = state.linked.filter((l) => l.link.path === r.path).length;
   const snip = r.snippets[0];
+  const view = currentView();
+  const thumb = r.thumbnail && state.online ? bridge.fileUrl(r.thumbnail) : undefined;
+  if (view === 'compact') {
+    return `<li><button class="result compact" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
+      <span class="r-title">${highlightTerms(r.title, terms)}</span>
+      <span class="r-path">${esc(r.folder || '/')}</span>
+      ${linkedCount ? `<span class="chip linked">${icons.link} ${linkedCount}</span>` : ''}
+      <span class="where">${r.matchedIn.length ? r.matchedIn[0] : relativeTime(r.mtime)}</span>
+    </button></li>`;
+  }
+  if (view === 'cards') {
+    return `<li><button class="result rcard" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
+      <div class="rc-media">${thumb ? `<img src="${esc(thumb)}" alt="" loading="lazy" decoding="async">` : `<div class="rc-text">${snip ? highlight(snip.text, snip.ranges) : esc(r.folder || '/')}</div>`}${linkedCount ? `<span class="chip linked rc-badge">${icons.link} ${linkedCount}</span>` : ''}</div>
+      <div class="rc-body">
+        <div class="r-title">${highlightTerms(r.title, terms)}</div>
+        <div class="rc-sub">${esc(r.folder || '/')} · ${relativeTime(r.mtime)}</div>
+        ${thumb && snip ? `<div class="r-snip">${highlight(snip.text, snip.ranges)}</div>` : ''}
+        ${r.tags.length ? `<div class="r-foot">${r.tags.slice(0, 3).map((t) => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>
+    </button></li>`;
+  }
   return `<li><button class="result" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
     <div class="r-main">
       <div class="r-head"><span class="r-title">${highlightTerms(r.title, terms)}</span><span class="r-path">${esc(r.folder || '/')}</span></div>
       ${snip ? `<div class="r-snip">${snip.ranges.length ? `<span class="ln">L${snip.line}</span>` : ''}${highlight(snip.text, snip.ranges)}</div>` : ''}
       <div class="r-foot">${r.tags.slice(0, 4).map((t) => `<span class="chip">#${esc(t)}</span>`).join('')}${linkedCount ? `<span class="chip linked">${icons.link} ${linkedCount} on canvas</span>` : ''}${r.matchedIn.length ? `<span class="where">${r.matchedIn.join(' · ')}</span>` : `<span class="where">${relativeTime(r.mtime)}</span>`}</div>
     </div>
-    ${r.thumbnail && state.online ? `<img class="r-thumb" src="${esc(bridge.fileUrl(r.thumbnail))}" alt="" loading="lazy" decoding="async">` : ''}
+    ${thumb ? `<img class="r-thumb" src="${esc(thumb)}" alt="" loading="lazy" decoding="async">` : ''}
   </button></li>`;
 }
 
@@ -260,6 +286,9 @@ function renderSettings(): void {
   $('view-settings').innerHTML = `<div class="scroll"><form class="form" id="settings-form">
     <label>Vault</label>
     <div class="card" style="margin:6px 0 0"><div class="card-head"><span class="ty">${icons.note}</span><div class="grow"><div class="name">${esc(state.vault?.name ?? 'No vault chosen')}</div><div class="sub" title="${esc(state.vault?.path ?? '')}">${state.vault ? `${esc(state.vault.path)} · ${state.vault.notes} notes` : 'Pick one to start searching'}</div></div><button class="btn secondary sm" type="button" data-act="change-vault" ${state.online ? '' : 'disabled'}>Change…</button></div></div>
+    <label>Theme</label>
+    <div class="seg" role="radiogroup" aria-label="Theme">${(['auto', 'light', 'dark'] as ThemeMode[]).map((t) => `<button type="button" class="seg-btn${(state.settings.theme ?? 'auto') === t ? ' on' : ''}" role="radio" aria-checked="${(state.settings.theme ?? 'auto') === t}" data-act="theme" data-arg="${t}">${t === 'auto' ? 'Follow Figma' : t === 'light' ? 'Light' : 'Dark'}</button>`).join('')}</div>
+    <div class="help">Auto matches Figma's theme as it changes. The sun/moon button in the header is a quick override.</div>
     <label for="s-url">Bridge address</label><input id="s-url" name="bridgeUrl" value="${esc(s.bridgeUrl)}" placeholder="http://localhost:27123" />
     <div class="help">Where the Obspec Bridge is listening. Start it with <code>npx obspec-bridge --vault &lt;path&gt;</code>. Figma only lets this plugin reach <code>http://localhost:27123</code>, so keep that host and port unless you also edit the manifest.</div>
     <label for="s-token">Token <span style="font-weight:400;color:var(--text-3)">(optional)</span></label><input id="s-token" name="token" value="${esc(s.token)}" placeholder="Only if you started the bridge with --token" />
@@ -513,6 +542,9 @@ app.addEventListener('click', (e) => {
     case 'hint': { const h = arg === '"phrase"' ? '"' : arg; state.query = (state.query ? state.query.replace(/\s*$/, ' ') : '') + h; input.value = state.query; input.focus(); scheduleSearch(); render(); break; }
     case 'retry': void checkHealth(); break;
     case 'copy-cmd': void copyText(BRIDGE_CMD); break;
+    case 'view': state.settings = { ...state.settings, searchView: arg as SearchView }; send({ type: 'save-settings', settings: state.settings }); renderSearch(); break;
+    case 'theme': setTheme(arg as ThemeMode); renderSettings(); break;
+    case 'toggle-theme': setTheme(isDark() ? 'light' : 'dark'); break;
     case 'use-vault': void useVault(arg); break;
     case 'browse-vault': void browseVault(); break;
     case 'change-vault': state.choosingVault = true; state.tab = 'search'; state.note = undefined; void loadVaults(); render(); break;
@@ -567,6 +599,33 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.tab = 'search'; state.note = undefined; render(); input.focus(); input.select(); }
 });
 
+// ───────────────────────────── Theme ─────────────────────────────────────
+// Figma sets `figma-dark` / `figma-light` on <html> (and flips it live). 'auto' follows that;
+// an override re-applies our class whenever Figma changes its mind.
+const htmlEl = document.documentElement;
+let figmaTheme: 'figma-dark' | 'figma-light' = htmlEl.classList.contains('figma-dark') ? 'figma-dark' : 'figma-light';
+let appliedTheme: string | null = null;
+function isDark(): boolean { return htmlEl.classList.contains('figma-dark'); }
+function applyTheme(): void {
+  const mode = state.settings.theme ?? 'auto';
+  const want = mode === 'auto' ? figmaTheme : mode === 'dark' ? 'figma-dark' : 'figma-light';
+  if (htmlEl.classList.contains(want) && !htmlEl.classList.contains(want === 'figma-dark' ? 'figma-light' : 'figma-dark')) { appliedTheme = want; return; }
+  appliedTheme = want;
+  htmlEl.classList.remove('figma-dark', 'figma-light');
+  htmlEl.classList.add(want);
+}
+function setTheme(mode: ThemeMode): void {
+  state.settings = { ...state.settings, theme: mode };
+  send({ type: 'save-settings', settings: state.settings });
+  applyTheme(); render();
+}
+new MutationObserver(() => {
+  const now = htmlEl.classList.contains('figma-dark') ? 'figma-dark' : htmlEl.classList.contains('figma-light') ? 'figma-light' : null;
+  if (!now || now === appliedTheme) return;   // our own change, or no theme class at all
+  figmaTheme = now;                            // Figma (or the host) switched theme
+  applyTheme(); renderTop();
+}).observe(htmlEl, { attributes: true, attributeFilter: ['class'] });
+
 // ───────────────────────────── Window resize grip ────────────────────────
 {
   const grip = $('grip');
@@ -602,6 +661,7 @@ window.addEventListener('message', (e) => {
     case 'init':
       state.settings = { ...DEFAULT_SETTINGS, ...m.settings }; state.fileKey = m.fileKey; state.fileName = m.fileName; state.editorType = m.editorType;
       bridge.configure(state.settings.bridgeUrl, state.settings.token);
+      applyTheme();
       void checkHealth();
       if (m.command === 'link' || m.command === 'push') state.tab = 'selection';
       render(); input.focus();

@@ -65,12 +65,22 @@ await evaluate(`(async()=>{const u=window.obspec.ui; await u.tab('search'); cons
 await shot('07-search-results.png');
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.typeInto('#q','states'); await u.waitFor('.r-thumb'); await new Promise(r=>setTimeout(r,600));})()`);
 await shot('07b-search-thumbnails.png');
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('[data-act=view][data-arg=cards]'); await u.waitFor('.result.rcard'); await new Promise(r=>setTimeout(r,500));})()`);
+await shot('07c-search-cards.png');
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('[data-act=view][data-arg=compact]'); await u.waitFor('.result.compact'); await new Promise(r=>setTimeout(r,400));})()`);
+await shot('07d-search-compact.png');
+await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('[data-act=view][data-arg=list]'); await u.waitFor('.result:not(.rcard):not(.compact)');})()`);
 await evaluate(`(async()=>{const u=window.obspec.ui; await u.click('.result'); await u.waitFor('.note-title'); await new Promise(r=>setTimeout(r,500));})()`);
 await shot('08-note-view.png');
 // Dark theme snapshot of the plugin for the record.
 await evaluate(`localStorage.setItem('obspec:preview-theme','dark'); document.getElementById('theme').click(); true`);
 await sleep(600);
 await shot('09-dark-theme.png');
+// Plugin-side override: back to light while the host (Figma) is dark.
+await evaluate(`document.getElementById('plugin').contentDocument.querySelector('[data-act=toggle-theme]').click(); true`);
+await sleep(500);
+await shot('09b-theme-override-light-in-dark-figma.png');
+await evaluate(`document.getElementById('plugin').contentDocument.querySelector('[data-act=toggle-theme]').click(); true`);
 
 const logs = await evaluate(`[...document.querySelectorAll('#log li')].map(l=>l.textContent)`);
 const pluginErrors = events.filter((e) => e.method === 'Runtime.exceptionThrown').map((e) => e.params.exceptionDetails.exception?.description ?? e.params.exceptionDetails.text);
