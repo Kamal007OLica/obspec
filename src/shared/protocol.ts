@@ -8,6 +8,7 @@
 
 export const PLUGIN_VERSION = '1.1.0';
 export const SUPPORT_EMAIL = 'kr07.work@gmail.com';
+export const COMMUNITY_URL = 'https://www.figma.com/community/plugin/1693223473984407174';
 
 // ───────────────────────────── Vault / bridge ─────────────────────────────
 

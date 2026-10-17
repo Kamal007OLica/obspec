@@ -8,7 +8,7 @@ import { icons, nodeIcon } from './icons';
 import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
 import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
-  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl, PLUGIN_VERSION, SUPPORT_EMAIL,
+  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl, PLUGIN_VERSION, SUPPORT_EMAIL, COMMUNITY_URL,
   type CardImage, type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SearchView, type SelectionSummary, type Settings, type SyncState, type ThemeMode, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
@@ -308,7 +308,7 @@ function renderSettings(): void {
     <label>Support</label>
     <div class="support">
       <p class="muted" style="margin:0 0 8px">Found a bug or have an idea? Mail <b>${SUPPORT_EMAIL}</b>. The report includes your plugin and bridge versions, never your notes.</p>
-      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn secondary sm" type="button" data-act="report-bug">${icons.bug} Report a bug</button><button class="btn ghost sm" type="button" data-act="copy-support">Copy address</button></div>
+      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn secondary sm" type="button" data-act="report-bug">${icons.bug} Report a bug</button><button class="btn ghost sm" type="button" data-act="copy-support">Copy address</button><button class="btn ghost sm" type="button" data-act="open-community">${icons.external} Obspec on Figma Community</button></div>
     </div>
     <div class="row" style="margin-top:12px"><button class="btn primary" type="submit">Save &amp; reconnect</button><button class="btn ghost" type="button" data-act="tab" data-arg="search">Done</button>
       <span style="margin-left:auto;color:var(--text-3);font-size:10px">${esc(state.fileName)}${state.fileKey ? '' : ' · no file key'}</span></div>
@@ -575,6 +575,7 @@ app.addEventListener('click', (e) => {
     case 'theme': setTheme(arg as ThemeMode); renderSettings(); break;
     case 'report-bug': reportBug(); break;
     case 'copy-support': void copyText(SUPPORT_EMAIL); break;
+    case 'open-community': send({ type: 'open-url', url: COMMUNITY_URL }); break;
     case 'toggle-theme': setTheme(isDark() ? 'light' : 'dark'); break;
     case 'use-vault': void useVault(arg); break;
     case 'browse-vault': void browseVault(); break;

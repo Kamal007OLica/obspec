@@ -49,6 +49,10 @@ Figma plugin (UI + sandbox)  ⇄  Obspec Bridge (localhost:27123)  ⇄  your Obs
 | **Figma Specs** | *Save as .md for Figma Specs* exports any note as a Spec-ready markdown file; drop it on the canvas and Figma turns it into a native Spec. Everything Obspec writes uses only the blocks Specs understand. | note view (↓ icon) |
 | **In Obsidian** | *in Obsidian* next to the results runs the same search inside Obsidian, so the matching notes light up in your vault. | Search tab |
 
+## Install
+
+**From Figma Community:** [https://www.figma.com/community/plugin/1693223473984407174](https://www.figma.com/community/plugin/1693223473984407174) → *Open in Figma*. Then start the bridge (step 1 below) and pick your vault in the plugin's first-run screen.
+
 ## Run it
 
 **1. Start the bridge** (a tiny local helper that reads your vault for Figma). Pick whichever is easiest:
