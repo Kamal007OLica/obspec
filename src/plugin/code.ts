@@ -8,7 +8,10 @@ import { DEFAULT_SETTINGS, FILE_KEY, LINK_KEY, type LinkedNodeSummary, type Note
 import { buildSpecCard, setCardStatus, updateSpecCard } from './speccard';
 import { designHashOf, snapshotNode } from './snapshot';
 
-const UI_SIZE = { width: 380, height: 560 };
+const UI_SIZE = { width: 500, height: 780 };
+const UI_MIN = { width: 360, height: 480 };
+const UI_MAX = { width: 1400, height: 1600 };
+const clampSize = (w: number, h: number) => ({ width: Math.round(Math.min(UI_MAX.width, Math.max(UI_MIN.width, w))), height: Math.round(Math.min(UI_MAX.height, Math.max(UI_MIN.height, h))) });
 const SETTINGS_KEY = 'obspec:settings:v1';
 
 figma.showUI(__html__, { ...UI_SIZE, themeColors: true, title: 'Obspec' });
@@ -90,7 +93,9 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
   try {
     switch (msg.type) {
       case 'ui-ready': {
-        post({ type: 'init', settings: await loadSettings(), fileKey: fileKey(), fileName: figma.root.name, editorType: figma.editorType, command: figma.command || undefined });
+        const s = await loadSettings();
+        if (s.windowWidth && s.windowHeight) { const sz = clampSize(s.windowWidth, s.windowHeight); figma.ui.resize(sz.width, sz.height); }
+        post({ type: 'init', settings: s, fileKey: fileKey(), fileName: figma.root.name, editorType: figma.editorType, command: figma.command || undefined });
         await pushSelection();
         await pushLinked();
         return;
@@ -173,7 +178,12 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
       }
       case 'open-url': return figma.openExternal(msg.url);
       case 'notify': return void figma.notify(msg.message, { error: msg.error });
-      case 'resize': return figma.ui.resize(Math.max(320, msg.width), Math.max(400, msg.height));
+      case 'resize': {
+        const sz = clampSize(msg.width, msg.height);
+        figma.ui.resize(sz.width, sz.height);
+        if (msg.persist) { const s = await loadSettings(); await figma.clientStorage.setAsync(SETTINGS_KEY, { ...s, windowWidth: sz.width, windowHeight: sz.height }); }
+        return;
+      }
       case 'close': return figma.closePlugin();
     }
   } catch (err) {

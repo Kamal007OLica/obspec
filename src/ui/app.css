@@ -36,7 +36,7 @@ html.figma-dark {
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
-  font: 11px/1.45 var(--font); color: var(--text); background: var(--bg);
+  font: 12px/1.45 var(--font); color: var(--text); background: var(--bg);
   -webkit-font-smoothing: antialiased; overflow: hidden; letter-spacing: .005em;
 }
 button, input, textarea { font: inherit; color: inherit; }
@@ -54,7 +54,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .top { padding: 10px 12px 0; border-bottom: 1px solid var(--border); background: var(--bg); flex: none; }
 .brand { display: flex; align-items: center; gap: 8px; height: 24px; }
 .logo { width: 20px; height: 20px; flex: none; }
-.wordmark { font-weight: 600; font-size: 12px; letter-spacing: .01em; }
+.wordmark { font-weight: 600; font-size: 13px; letter-spacing: .01em; }
 .ver { font-size: 9.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
 .conn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 7px; border-radius: 999px;
   background: var(--bg-2); color: var(--text-2); max-width: 170px; transition: background .15s; }
@@ -85,7 +85,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .searchbar { padding: 10px 12px 8px; flex: none; }
 .field { position: relative; display: flex; align-items: center; }
 .field svg { position: absolute; left: 9px; width: 14px; height: 14px; color: var(--text-3); pointer-events: none; }
-.field input { width: 100%; height: 32px; padding: 0 60px 0 30px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-2);
+.field input { width: 100%; height: 36px; padding: 0 60px 0 30px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-2);
   transition: border-color .15s, background .15s, box-shadow .15s; }
 .field input::placeholder { color: var(--text-3); }
 .field input:hover { border-color: var(--border-strong); }
@@ -108,11 +108,11 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .result { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 8px 8px 9px; border-radius: var(--radius); margin: 1px 0; cursor: pointer;
   border: 1px solid transparent; }
 .result .r-main { flex: 1 1 auto; min-width: 0; }
-.result .r-thumb { flex: none; width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-2); margin-top: 1px; }
+.result .r-thumb { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-2); margin-top: 1px; }
 .result:hover { background: var(--bg-hover); }
 .result[aria-selected="true"] { background: var(--bg-selected); border-color: transparent; }
 .result .r-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.result .r-title { font-weight: 600; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result .r-title { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .result .r-path { color: var(--text-3); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: auto; flex: 0 1 auto; }
 .result .r-snip { color: var(--text-2); margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; word-break: break-word; }
 .result .r-snip .ln { color: var(--text-3); font-family: var(--mono); font-size: 9.5px; margin-right: 5px; }
@@ -129,15 +129,15 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .back:hover { background: var(--bg-hover); color: var(--text); }
 .back svg { width: 14px; height: 14px; }
 .crumb { color: var(--text-3); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
-.note-title { padding: 8px 12px 0; font-size: 16px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+.note-title { padding: 8px 12px 0; font-size: 18px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
 .note-meta { padding: 6px 12px 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--text-3); font-size: 10px; }
 .note-meta .sep { opacity: .5; }
 .note-body { padding: 10px 12px 14px; }
 
-.md { font-size: 11.5px; line-height: 1.6; color: var(--text); word-break: break-word; }
+.md { font-size: 12.5px; line-height: 1.6; color: var(--text); word-break: break-word; }
 .md > :first-child { margin-top: 0; }
 .md h1, .md h2, .md h3, .md h4 { margin: 14px 0 4px; line-height: 1.3; font-weight: 600; letter-spacing: -.005em; }
-.md h1 { font-size: 14px; } .md h2 { font-size: 13px; } .md h3 { font-size: 12px; } .md h4 { font-size: 11.5px; color: var(--text-2); }
+.md h1 { font-size: 15.5px; } .md h2 { font-size: 14px; } .md h3 { font-size: 13px; } .md h4 { font-size: 12.5px; color: var(--text-2); }
 .md p { margin: 6px 0; }
 .md ul, .md ol { margin: 6px 0; padding-left: 18px; }
 .md li { margin: 2px 0; }
@@ -171,7 +171,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .actionbar .spacer { flex: 1; }
 
 /* buttons */
-.btn { height: 28px; padding: 0 10px; border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid transparent; transition: background .12s, border-color .12s, transform .05s; }
+.btn { height: 30px; padding: 0 12px; border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid transparent; transition: background .12s, border-color .12s, transform .05s; }
 .btn:active { transform: translateY(.5px); }
 .btn svg { width: 13px; height: 13px; }
 .btn.primary { background: var(--accent); color: var(--on-accent); }
@@ -191,7 +191,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .card-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
 .card-head .ty { width: 26px; height: 26px; border-radius: 7px; background: var(--bg-2); display: grid; place-items: center; color: var(--text-2); flex: none; }
 .card-head .ty svg { width: 14px; height: 14px; }
-.card-head .name { font-weight: 600; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-head .name { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-head .sub { color: var(--text-3); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-head .grow { min-width: 0; flex: 1; }
 .card-body { padding: 0 12px 10px; }
@@ -291,6 +291,12 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 .skeleton { padding: 8px 12px; }
 .skeleton div { height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; margin: 8px 0; }
+
+/* resize grip (bottom-right) */
+.grip { position: fixed; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; z-index: 20; opacity: .45; transition: opacity .15s;
+  background: linear-gradient(135deg, transparent 0 50%, var(--text-3) 50% 58%, transparent 58% 66%, var(--text-3) 66% 74%, transparent 74% 82%, var(--text-3) 82% 90%, transparent 90%); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.grip:hover, body.resizing .grip { opacity: .9; }
+body.resizing { user-select: none; cursor: nwse-resize; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 50% { opacity: .35; } }

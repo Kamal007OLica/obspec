@@ -247,6 +247,9 @@ export interface Settings {
   /** Vault name used for obsidian:// deep links (auto-filled from /health). */
   vaultName: string;
   cardWidth: number;
+  /** Remembered plugin window size (set by dragging the corner grip). */
+  windowWidth?: number;
+  windowHeight?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -275,7 +278,7 @@ export type UiToPlugin =
   | { type: 'select-node'; nodeId: string; pageId?: string }
   | { type: 'open-url'; url: string }
   | { type: 'notify'; message: string; error?: boolean }
-  | { type: 'resize'; width: number; height: number }
+  | { type: 'resize'; width: number; height: number; persist?: boolean }
   | { type: 'close' };
 
 export type PluginToUi =

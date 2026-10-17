@@ -59,7 +59,8 @@ app.innerHTML = `
     <section id="view-linked" class="view" hidden></section>
     <section id="view-settings" class="view" hidden></section>
   </main>
-  <div class="toasts" id="toasts" aria-live="polite"></div>`;
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="grip" id="grip" title="Drag to resize" aria-hidden="true"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = $<HTMLInputElement>('q');
@@ -565,6 +566,33 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.note) { closeNote(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.tab = 'search'; state.note = undefined; render(); input.focus(); input.select(); }
 });
+
+// ───────────────────────────── Window resize grip ────────────────────────
+{
+  const grip = $('grip');
+  let start: { x: number; y: number; w: number; h: number } | null = null;
+  let raf = 0;
+  const current = () => ({ w: window.innerWidth, h: window.innerHeight });
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); grip.setPointerCapture(e.pointerId);
+    start = { x: e.screenX, y: e.screenY, ...current() };
+    document.body.classList.add('resizing');
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const w = start.w + (e.screenX - start.x), h = start.h + (e.screenY - start.y);
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => send({ type: 'resize', width: w, height: h }));
+  });
+  const end = (e: PointerEvent) => {
+    if (!start) return;
+    const w = start.w + (e.screenX - start.x), h = start.h + (e.screenY - start.y);
+    start = null; document.body.classList.remove('resizing');
+    send({ type: 'resize', width: w, height: h, persist: true });
+  };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+}
 
 // ───────────────────────────── Sandbox messages ──────────────────────────
 window.addEventListener('message', (e) => {

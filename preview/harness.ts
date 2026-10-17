@@ -86,7 +86,7 @@ window.addEventListener('message', (e) => {
   log(`ui → sandbox: ${m.type}`, 'ui');
   try {
     switch (m.type) {
-      case 'ui-ready': post({ type: 'init', settings: loadSettings(), fileKey: FILE_KEY, fileName: FILE_NAME, editorType: 'figma' }); pushSelection(); pushLinked(); applyTheme(); break;
+      case 'ui-ready': { const s = loadSettings(); if (s.windowWidth && s.windowHeight) { iframe.width = String(s.windowWidth); iframe.height = String(s.windowHeight); document.getElementById('win-size')!.textContent = `${s.windowWidth} × ${s.windowHeight}`; } post({ type: 'init', settings: s, fileKey: FILE_KEY, fileName: FILE_NAME, editorType: 'figma' }); pushSelection(); pushLinked(); applyTheme(); break; }
       case 'get-settings': post({ type: 'settings', settings: loadSettings() }); break;
       case 'save-settings': localStorage.setItem('obspec:settings', JSON.stringify(m.settings)); post({ type: 'settings', settings: m.settings }); break;
       case 'get-selection': pushSelection(); break;
@@ -123,7 +123,7 @@ window.addEventListener('message', (e) => {
       case 'select-node': { const n = findNode(m.nodeId); if (!n) throw new Error('Layer no longer exists'); select([n.id]); break; }
       case 'open-url': log(`openExternal(${m.url})`, 'sandbox'); break;
       case 'notify': notify(m.message); break;
-      case 'resize': iframe.width = String(m.width); iframe.height = String(m.height); document.getElementById('win-size')!.textContent = `${m.width} × ${m.height}`; break;
+      case 'resize': { const w = Math.round(Math.min(1400, Math.max(360, m.width))), h = Math.round(Math.min(1600, Math.max(480, m.height))); iframe.width = String(w); iframe.height = String(h); document.getElementById('win-size')!.textContent = `${w} × ${h}`; if (m.persist) { const s = loadSettings(); localStorage.setItem('obspec:settings', JSON.stringify({ ...s, windowWidth: w, windowHeight: h })); } break; }
       case 'close': log('closePlugin()', 'sandbox'); break;
     }
   } catch (err) { post({ type: 'error', message: (err as Error).message }); }

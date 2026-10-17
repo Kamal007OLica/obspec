@@ -12,7 +12,7 @@ html.dark .status.on { background: rgba(76,205,132,.14); color: #4ccd84; } html.
 .tb { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
 .tb:hover { border-color: var(--accent); color: var(--accent); }
 .tb:disabled { opacity: .5; cursor: default; }
-.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 420px 340px; }
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 540px 340px; }
 .canvas { position: relative; background: var(--canvas); display: flex; flex-direction: column; min-width: 0; }
 .pages { display: flex; gap: 4px; padding: 10px 14px; }
 .page { padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--muted); }
@@ -76,4 +76,4 @@ iframe { display: block; border: 0; background: #fff; }
 .log li.ui { color: var(--accent); }
 .log li.vault { color: #1f8a4c; }
 @keyframes pulse { 50% { opacity: .4; } }
-@media (max-width: 1200px) { .grid { grid-template-columns: 1fr 420px; } .rail { grid-column: 1 / -1; flex-direction: row; } .panel { flex: 1; } }
+@media (max-width: 1200px) { .grid { grid-template-columns: 1fr 540px; } .rail { grid-column: 1 / -1; flex-direction: row; } .panel { flex: 1; } }
