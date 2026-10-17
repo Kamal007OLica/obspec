@@ -5,8 +5,7 @@
   "main": "dist/code.js",
   "ui": "dist/ui.html",
   "editorType": [
-    "figma",
-    "figjam"
+    "figma"
   ],
   "documentAccess": "dynamic-page",
   "capabilities": [],
