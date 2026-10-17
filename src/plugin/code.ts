@@ -77,10 +77,13 @@ async function pushSelection() { post({ type: 'selection', selection: await sele
 async function pushLinked() { post({ type: 'linked', nodes: await linkedNodes() }); }
 
 figma.on('selectionchange', () => void pushSelection());
-figma.on('documentchange', (ev) => {
-  // Only re-list links when plugin data or node tree changed — keeps big files snappy.
-  if (ev.documentChanges.some((c) => c.type === 'DELETE' || c.type === 'CREATE' || (c.type === 'PROPERTY_CHANGE' && c.properties.includes('pluginData')))) void pushLinked();
-});
+// dynamic-page files: documentchange can only be registered once every page is loaded.
+void figma.loadAllPagesAsync().then(() => {
+  figma.on('documentchange', (ev) => {
+    // Only re-list links when plugin data or node tree changed — keeps big files snappy.
+    if (ev.documentChanges.some((c) => c.type === 'DELETE' || c.type === 'CREATE' || (c.type === 'PROPERTY_CHANGE' && c.properties.includes('pluginData')))) void pushLinked();
+  });
+}).catch((err) => console.warn('[obspec] documentchange unavailable:', err));
 
 // ───────────────────────────── Message loop ───────────────────────────────
 figma.ui.onmessage = async (msg: UiToPlugin) => {
