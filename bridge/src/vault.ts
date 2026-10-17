@@ -30,6 +30,9 @@ export interface IndexedNote {
 }
 
 const IGNORED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
+export const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.avif']);
+export const IMAGE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.avif': 'image/avif' };
+const isImage = (rel: string) => IMAGE_EXT.has(path.extname(rel).toLowerCase());
 
 export class Vault extends EventEmitter {
   readonly root: string;
@@ -39,6 +42,9 @@ export class Vault extends EventEmitter {
   /** wikilink target key (base lower) → paths of notes that link to it */
   private inbound = new Map<string, Set<string>>();
   private recent: NoteListItem[] | null = null;
+  /** Attachments (images): lower-case rel path → exact rel path, and file name → rel paths. */
+  private files = new Map<string, string>();
+  private filesByBase = new Map<string, Set<string>>();
   private watcher?: FSWatcher;
   private poller?: NodeJS.Timeout;
   private indexedAt = 0;
@@ -60,12 +66,12 @@ export class Vault extends EventEmitter {
   get size(): number { return this.notes.size; }
 
   async index(): Promise<void> {
-    this.notes.clear(); this.byBase.clear(); this.inbound.clear(); this.recent = null;
-    const files: string[] = [];
-    for await (const rel of walk(this.root)) files.push(rel);
+    this.notes.clear(); this.byBase.clear(); this.inbound.clear(); this.recent = null; this.files.clear(); this.filesByBase.clear();
+    const mds: string[] = [];
+    for await (const rel of walk(this.root)) { if (rel.toLowerCase().endsWith('.md')) mds.push(rel); else this.addFile(rel); }
     // Read in parallel batches: thousands of small files, IO-bound.
     const BATCH = 64;
-    for (let i = 0; i < files.length; i += BATCH) await Promise.all(files.slice(i, i + BATCH).map((rel) => this.load(rel, false)));
+    for (let i = 0; i < mds.length; i += BATCH) await Promise.all(mds.slice(i, i + BATCH).map((rel) => this.load(rel, false)));
     this.indexedAt = Date.now();
   }
 
@@ -74,7 +80,9 @@ export class Vault extends EventEmitter {
       this.watcher = watch(this.root, { recursive: true }, (_event, filename) => {
         if (!filename) return;
         const rel = String(filename).split(path.sep).join('/');
-        if (!rel.toLowerCase().endsWith('.md') || rel.split('/').some((p) => IGNORED_DIRS.has(p))) return;
+        if (rel.split('/').some((p) => IGNORED_DIRS.has(p))) return;
+        if (isImage(rel)) { void fs.access(path.join(this.root, rel)).then(() => this.addFile(rel), () => this.removeFile(rel)); return; }
+        if (!rel.toLowerCase().endsWith('.md')) return;
         clearTimeout(this.pending.get(rel));
         this.pending.set(rel, setTimeout(() => { this.pending.delete(rel); void this.refresh(rel); }, 80));
       });
@@ -89,6 +97,19 @@ export class Vault extends EventEmitter {
   stop(): void { this.watcher?.close(); if (this.poller) clearInterval(this.poller); for (const t of this.pending.values()) clearTimeout(t); }
 
   get(rel: string): IndexedNote | undefined { return this.notes.get(normalize(rel)); }
+
+  /** Resolve an image embed like Obsidian: exact path, else by file name anywhere in the vault. */
+  resolveFile(target: string): { rel: string; abs: string } | undefined {
+    let t = normalize(decodeURIComponentSafe(target).replace(/^\.\//, '').trim());
+    if (!t) return undefined;
+    const exact = this.files.get(t.toLowerCase());
+    if (exact) return { rel: exact, abs: path.join(this.root, exact) };
+    const set = this.filesByBase.get((t.split('/').pop() ?? t).toLowerCase());
+    if (!set?.size) return undefined;
+    let best: string | undefined;
+    for (const rel of set) if (!best || rel.split('/').length < best.split('/').length) best = rel;
+    return best ? { rel: best, abs: path.join(this.root, best) } : undefined;
+  }
 
   /** Current content hash, or null when the note doesn't exist. */
   hashOf(rel: string): string | null { return this.notes.get(normalize(rel))?.hash ?? null; }
@@ -171,7 +192,7 @@ export class Vault extends EventEmitter {
 
   private async poll(): Promise<void> {
     const seen = new Set<string>();
-    for await (const rel of walk(this.root)) { seen.add(rel); await this.refresh(rel); }
+    for await (const rel of walk(this.root)) { seen.add(rel); if (isImage(rel)) this.addFile(rel); else await this.refresh(rel); }
     for (const rel of [...this.notes.keys()]) if (!seen.has(rel)) await this.refresh(rel);
   }
 
@@ -196,6 +217,16 @@ export class Vault extends EventEmitter {
     this.recent = null;
     if (emit) this.emit('event', { type: eventType, path: rel, mtime: note.mtime, hash: note.hash } satisfies VaultEvent);
     return note;
+  }
+
+  private addFile(rel: string): void {
+    this.files.set(rel.toLowerCase(), rel);
+    addTo(this.filesByBase, (rel.split('/').pop() ?? rel).toLowerCase(), rel);
+  }
+
+  private removeFile(rel: string): void {
+    this.files.delete(rel.toLowerCase());
+    this.filesByBase.get((rel.split('/').pop() ?? rel).toLowerCase())?.delete(rel);
   }
 
   private remove(rel: string, invalidate = true): boolean {
@@ -229,9 +260,11 @@ async function* walk(root: string, rel = ''): AsyncGenerator<string> {
     if (IGNORED_DIRS.has(e.name)) continue;
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) yield* walk(root, r);
-    else if (e.isFile() && e.name.toLowerCase().endsWith('.md')) yield r;
+    else if (e.isFile() && (e.name.toLowerCase().endsWith('.md') || isImage(e.name))) yield r;
   }
 }
+
+function decodeURIComponentSafe(s: string): string { try { return decodeURIComponent(s); } catch { return s; } }
 
 export function normalize(rel: string): string {
   return rel.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/{2,}/g, '/');

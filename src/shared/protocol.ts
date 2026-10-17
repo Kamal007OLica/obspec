@@ -211,6 +211,30 @@ export interface DesignSnapshot {
   hash: string;
 }
 
+/** An image embedded in a note, decoded by the UI and placed on the canvas by the sandbox. */
+export interface CardImage {
+  /** The embed target as written in the note (file name or path). */
+  target: string;
+  /** PNG bytes, already scaled under Figma's 4096 px limit. */
+  bytes: Uint8Array;
+  width: number;
+  height: number;
+}
+
+/** Image embeds a note body refers to: `![[name.png|300]]` and `![alt](relative/path.png)`. */
+export function imageTargets(body: string, max = 8): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (t: string) => { t = t.trim(); if (t && !seen.has(t.toLowerCase()) && out.length < max) { seen.add(t.toLowerCase()); out.push(t); } };
+  for (const m of body.matchAll(/!\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g)) if (isImageName(m[1])) add(m[1]);
+  for (const m of body.matchAll(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) if (!/^(https?:|data:)/i.test(m[1]) && isImageName(m[1])) add(m[1]);
+  return out;
+}
+
+export function isImageName(name: string): boolean {
+  return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(name.trim());
+}
+
 // ───────────────────────────── Settings ───────────────────────────────────
 
 export interface Settings {
@@ -239,10 +263,10 @@ export type UiToPlugin =
   | { type: 'save-settings'; settings: Settings }
   | { type: 'get-selection' }
   | { type: 'get-linked' }
-  | { type: 'insert-spec-card'; note: Note; vaultName: string; width: number }
+  | { type: 'insert-spec-card'; note: Note; vaultName: string; width: number; images?: CardImage[] }
   | { type: 'link-selection'; note: Note }
   | { type: 'unlink'; nodeId: string }
-  | { type: 'pull'; nodeId: string; note: Note; vaultName: string }
+  | { type: 'pull'; nodeId: string; note: Note; vaultName: string; images?: CardImage[] }
   | { type: 'card-status'; nodeId: string; status: CardStatus }
   | { type: 'snapshot'; nodeId: string }
   | { type: 'mark-pushed'; nodeId: string; path: string; note: Note; designHash: string }

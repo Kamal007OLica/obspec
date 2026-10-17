@@ -6,6 +6,8 @@
 export interface RenderOptions {
   /** Known note paths/titles to decide whether a wikilink resolves. */
   resolves?: (target: string) => boolean;
+  /** Turn a local image reference (file name or vault path) into a fetchable URL. */
+  resolveImage?: (target: string) => string | undefined;
 }
 
 export function esc(s: string): string {
@@ -83,12 +85,20 @@ export function inline(src: string, opts: RenderOptions = {}): string {
   const codes: string[] = [];
   let s = src.replace(/`([^`]+)`/g, (_, c) => { codes.push(`<code>${esc(c)}</code>`); return `\u0000${codes.length - 1}\u0000`; });
   s = esc(s);
-  s = s.replace(/!\[\[([^\]]+)\]\]/g, (_, t) => `<span class="chip neutral">🖼 ${t}</span>`);
+  s = s.replace(/!\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_, t: string, size: string | undefined) => {
+    const url = opts.resolveImage?.(t.trim());
+    if (!url) return `<span class="chip neutral">🖼 ${t.trim()}</span>`;
+    const w = size && /^\d+/.test(size) ? ` width="${parseInt(size, 10)}"` : '';
+    return `<img class="embed" src="${esc(url)}" alt="${esc(t.trim())}" loading="lazy"${w}>`;
+  });
   s = s.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (_, target: string, _anchor: string, alias: string) => {
     const ok = opts.resolves ? opts.resolves(target.trim()) : true;
     return `<span class="wiki${ok ? '' : ' broken'}" data-wiki="${esc(target.trim())}" role="link" tabindex="0">${alias ?? target}</span>`;
   });
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, url) => `<img alt="${alt}" src="${safeUrl(url)}">`);
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, alt: string, url: string) => {
+    const local = !/^(https?:|data:)/i.test(url) ? opts.resolveImage?.(url) : undefined;
+    return `<img class="embed" alt="${alt}" src="${local ? esc(local) : safeUrl(url)}" loading="lazy">`;
+  });
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${t}</a>`);
   s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:)])/g, (m) => `<a href="${safeUrl(m)}" target="_blank" rel="noopener">${m}</a>`);
   s = s.replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, '<strong>$2</strong>');

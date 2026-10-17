@@ -54,7 +54,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(rel)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   } catch (err) {
-    res.writeHead(500); res.end(String(err));
+    res.writeHead(err && err.code === 'ENOENT' ? 404 : 500); res.end(String(err));
   }
 });
 

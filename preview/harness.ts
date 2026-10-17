@@ -96,7 +96,7 @@ window.addEventListener('message', (e) => {
         const n: MockNode = { id, pageId: currentPageId, type: 'FRAME', name: `Spec · ${m.note.title}`, width: m.width, height: 520, texts: [m.note.title], children: ['eyebrow', 'title', 'body', 'footer'], fills: ['#FFFFFF'], pluginData: {}, kind: 'spec-card', note: m.note, status: 'in-sync' };
         page().nodes.push(n);
         writeLink(n, { v: 1, path: m.note.path, noteHash: m.note.hash, noteMtime: m.note.mtime, kind: 'spec-card', linkedAt: Date.now(), syncedAt: Date.now() });
-        select([id]); post({ type: 'spec-card-inserted', nodeId: id }); pushLinked(); notify(`Inserted “${m.note.title}”`); break;
+        select([id]); post({ type: 'spec-card-inserted', nodeId: id }); pushLinked(); notify(`Inserted “${m.note.title}”${m.images?.length ? ` with ${m.images.length} image(s), ${m.images.map((i) => `${i.width}×${i.height}`).join(', ')}` : ''}`); break;
       }
       case 'link-selection': {
         if (selection.length !== 1) throw new Error('Select exactly one layer to link');
@@ -145,7 +145,7 @@ function renderCanvas(): void {
         <div class="title">${esc(n.note.title)}</div>
         ${n.note.tags.length ? `<div class="tags">${n.note.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : ''}
         <div class="div"></div>
-        <div class="body">${blocks.map((b) => b.kind === 'h' ? `<div class="h">${esc(b.text)}</div>` : b.kind === 'code' ? `<div class="code">${esc(b.text)}</div>` : b.kind === 'quote' ? `<div class="quote">${esc(b.text)}</div>` : `<div>${esc(b.text)}</div>`).join('')}</div>
+        <div class="body">${blocks.map((b) => b.kind === 'image' ? `<img class="img" src="${BRIDGE}/file?path=${encodeURIComponent(b.target)}" alt="${esc(b.alt || b.target)}">` : b.kind === 'h' ? `<div class="h">${esc(b.text)}</div>` : b.kind === 'code' ? `<div class="code">${esc(b.text)}</div>` : b.kind === 'quote' ? `<div class="quote">${esc(b.text)}</div>` : `<div>${esc(b.text)}</div>`).join('')}</div>
         <div class="div"></div>
         <div class="foot"><b>Open in Obsidian ↗</b><span>${esc(n.note.path)} · ${n.note.words} words</span></div></div>`;
     }
@@ -225,7 +225,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const doc = () => iframe.contentDocument!;
 async function waitFor<T extends Element>(sel: string, pred: (el: T) => boolean = () => true, timeout = 8000): Promise<T> {
   const t0 = Date.now();
-  while (Date.now() - t0 < timeout) { const el = doc().querySelector<T>(sel); if (el && !(el as unknown as HTMLElement).hidden && pred(el)) return el; await sleep(60); }
+  while (Date.now() - t0 < timeout) { const el = doc().querySelector<T>(sel); if (el && el.getClientRects().length > 0 && pred(el)) return el; await sleep(60); }
   throw new Error(`Timed out waiting for ${sel}`);
 }
 async function typeInto(sel: string, text: string): Promise<void> {
@@ -235,6 +235,8 @@ async function typeInto(sel: string, text: string): Promise<void> {
 }
 async function click(sel: string, pred?: (el: HTMLElement) => boolean): Promise<void> { const el = await waitFor<HTMLElement>(sel, pred); el.click(); await sleep(250); }
 const tab = (t: string) => click(`.tab[data-arg="${t}"]`);
+/** Leave any open note view so the search box is visible again. */
+async function backToSearch(): Promise<void> { await tab('search'); const back = doc().querySelector<HTMLElement>('[data-act="back"]'); if (back && back.getClientRects().length) { back.click(); await sleep(200); } }
 async function waitCanvas(pred: () => boolean, timeout = 8000): Promise<void> { const t0 = Date.now(); while (!pred()) { if (Date.now() - t0 > timeout) throw new Error('Timed out waiting for canvas state'); await sleep(60); } }
 const pill = (state: string) => waitFor('.pill', (el) => el.classList.contains(state), 10000);
 
@@ -256,7 +258,7 @@ const scenarios: Scenario[] = [
     await sleep(500);
   } },
   { title: 'Search the vault, insert a spec card', detail: 'Type a query → open the note → “Insert spec card”. The card lands on the canvas, linked to the note.', run: async () => {
-    await tab('search'); await click('#q').catch(() => {});
+    await backToSearch();
     await typeInto('#q', 'apple pay');
     await waitFor('.result');
     await sleep(500);
@@ -267,6 +269,18 @@ const scenarios: Scenario[] = [
     await waitFor('.toast');
     await sleep(300);
     await tab('linked');
+    await sleep(600);
+  } },
+  { title: 'Insert a note that embeds an image', detail: 'Search “empty states” → insert. The ![[image]] embed is fetched from the vault and placed in the card as a real image.', run: async () => {
+    await backToSearch();
+    await typeInto('#q', 'empty states');
+    await waitFor('.result');
+    await sleep(400);
+    await click('.result');
+    await waitFor('.md img.embed');
+    await sleep(600);
+    await click('[data-act="insert"]');
+    await waitCanvas(() => !!document.querySelector('.node.spec img.img'));
     await sleep(600);
   } },
   { title: 'Link an existing layer to a note', detail: 'Select “Checkout / Payment step” → Selection tab → “Link to a note…” → pick “Payment Methods”.', run: async () => {
@@ -308,7 +322,7 @@ const scenarios: Scenario[] = [
   } },
   { title: 'Design changes → status flips → re-send', detail: 'The button label is changed on the canvas. Obspec shows “Design changed”; sending again updates the note’s Design section.', run: async () => {
     let n = selection[0] ? findNode(selection[0]) : undefined;
-    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[4].run(); n = findNode('2:2')!; }
+    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[5].run(); n = findNode('2:2')!; }
     await tab('selection');
     n.texts = n.texts.map((t) => (t === 'Continue' ? 'Pay now' : t === 'Continue to payment' ? 'Pay now' : t));
     if (n.preview) n.preview = n.preview.map(([k, t]) => [k, t === 'Continue' || t === 'Continue to payment' ? 'Pay now' : t]);

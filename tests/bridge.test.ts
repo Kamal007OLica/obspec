@@ -16,6 +16,10 @@ before(async () => {
   await writeFile(path.join(dir, 'Button.md'), '# Button\nPrimary button.\n');
   await writeFile(path.join(dir, '.obsidian/workspace.md'), 'should be ignored');
   await writeFile(path.join(other, 'Only.md'), '# Only\nIn the other vault.\n');
+  await mkdir(path.join(dir, 'Specs/attachments'), { recursive: true });
+  // 1×1 PNG
+  await writeFile(path.join(dir, 'Specs/attachments/shot.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
+  await writeFile(path.join(dir, 'secret.txt'), 'not an image');
   // A fake Obsidian registry so /vaults is deterministic.
   const reg = path.join(other, 'obsidian.json');
   await writeFile(reg, JSON.stringify({ vaults: { a: { path: dir, ts: 2, open: true }, b: { path: other, ts: 1 }, gone: { path: path.join(other, 'missing'), ts: 0 } } }));
@@ -69,6 +73,18 @@ test('PUT creates, PATCH merges frontmatter + section, conflicts on stale hash; 
   assert.match(onDisk, /^---\nfigma_node: "1:2"\n---\n# New/);
   const stale = await send('PATCH', '/note', { path: 'Figma/New.md', frontmatter: { x: 1 }, ifHash: created.note.hash });
   assert.equal(stale.status, 409);
+});
+
+test('file endpoint serves images by exact path or bare name, and nothing else', async () => {
+  const byName = await fetch(url + '/file?path=shot.png');
+  assert.equal(byName.status, 200);
+  assert.equal(byName.headers.get('content-type'), 'image/png');
+  assert.equal(byName.headers.get('x-vault-path'), 'Specs/attachments/shot.png');
+  const exact = await fetch(url + '/file?path=Specs/attachments/shot.png');
+  assert.equal(exact.status, 200);
+  assert.equal((await fetch(url + '/file?path=secret.txt')).status, 404);  // not indexed: not an image
+  assert.equal((await fetch(url + '/file?path=../outside.png')).status, 404);
+  assert.equal((await fetch(url + '/file?path=nope.png')).status, 404);
 });
 
 test('rejects paths that escape the vault or touch protected folders', async () => {

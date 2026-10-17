@@ -8,9 +8,9 @@
  */
 import http from 'node:http';
 import path from 'node:path';
-import { promises as fs } from 'node:fs';
+import { promises as fs, createReadStream } from 'node:fs';
 import { URL } from 'node:url';
-import { Vault } from './vault';
+import { IMAGE_EXT, IMAGE_MIME, Vault } from './vault';
 import { search } from './search';
 import { parseFrontmatter, replaceSection, withFrontmatter } from './markdown';
 import { canPickFolder, discoverVaults, looksLikeVault, pickFolder, saveConfig } from './discover';
@@ -128,6 +128,21 @@ export async function startBridge(opts: BridgeOptions): Promise<Bridge> {
           const hashes: HashesResponse['hashes'] = {};
           for (const p of url.searchParams.getAll('path')) hashes[p] = v.hashOf(p);
           return json(res, { hashes } satisfies HashesResponse);
+        }
+        case 'GET /file': {
+          // Images embedded in notes (![[name.png]]). Only image types are served, never other vault files.
+          const v = requireVault();
+          const hit = v.resolveFile(url.searchParams.get('path') ?? '');
+          if (!hit) return fail(res, 'NOT_FOUND', 'No such attachment');
+          const ext = path.extname(hit.rel).toLowerCase();
+          if (!IMAGE_EXT.has(ext)) return fail(res, 'FORBIDDEN', 'Only images can be fetched');
+          const st = await fs.stat(hit.abs).catch(() => null);
+          if (!st?.isFile()) return fail(res, 'NOT_FOUND', 'No such attachment');
+          const etag = `"${st.size}-${Math.round(st.mtimeMs)}"`;
+          if (req.headers['if-none-match'] === etag) { res.writeHead(304); return res.end(); }
+          res.writeHead(200, { 'Content-Type': IMAGE_MIME[ext], 'Content-Length': st.size, ETag: etag, 'Cache-Control': 'private, max-age=60', 'X-Vault-Path': encodeURI(hit.rel) });
+          createReadStream(hit.abs).pipe(res);
+          return;
         }
         case 'GET /notes': {
           const v = requireVault();

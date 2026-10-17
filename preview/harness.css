@@ -46,6 +46,7 @@ html.dark .status.on { background: rgba(76,205,132,.14); color: #4ccd84; } html.
 .spec .body { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 20px; }
 .spec .body .h { font-weight: 600; font-size: 14px; }
 .spec .body .code { background: #f4f3f8; border-radius: 8px; padding: 10px 12px; font: 11px/16px Menlo, monospace; white-space: pre-wrap; }
+.spec .body .img { width: 100%; height: auto; border-radius: 8px; display: block; }
 .spec .body .quote { border-left: 3px solid #6e56cf; padding-left: 10px; color: #6f6d7a; }
 .spec .foot { display: flex; justify-content: space-between; font-size: 10px; color: #6f6d7a; }
 .spec .foot b { color: #6e56cf; font-weight: 500; font-size: 11px; }

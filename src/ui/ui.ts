@@ -8,8 +8,8 @@ import { icons, nodeIcon } from './icons';
 import { esc, highlight, highlightTerms, renderMarkdown } from './markdown';
 import { DESIGN_HEADING, joinVaultPath, newNoteContent, pushFrontmatter, relativeTime, safeFileName, snapshotToMarkdown, toSpecMarkdown } from '../shared/notegen';
 import {
-  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, obsidianSearchUrl, obsidianUrl,
-  type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
+  cardStatusOf, computeSyncState, DEFAULT_SETTINGS, imageTargets, isImageName, obsidianSearchUrl, obsidianUrl,
+  type CardImage, type CardStatus, type DesignSnapshot, type HealthResponse, type LinkedNodeSummary, type Note, type NoteListItem, type PluginToUi, type SearchResult, type SelectionSummary, type Settings, type SyncState, type UiToPlugin, type VaultCandidate, type VaultEvent, type VaultInfo,
 } from '../shared/protocol';
 
 type Tab = 'search' | 'selection' | 'linked' | 'settings';
@@ -176,6 +176,7 @@ function renderNote(): void {
   const known = new Set<string>();
   for (const o of n.outlinks) known.add(o.title.toLowerCase());
   const resolves = (t: string) => known.has(t.toLowerCase()) || n.outlinks.some((o) => o.path.toLowerCase() === (t.endsWith('.md') ? t : t + '.md').toLowerCase());
+  const resolveImage = (t: string) => (state.online && isImageName(t) ? bridge.fileUrl(t) : undefined);
   const canLink = state.selection.count === 1;
   v.innerHTML = `
     <div class="note-head"><button class="back" data-act="back">${icons.back} Back</button><span class="crumb">${esc(n.folder || 'Vault root')}</span>
@@ -184,7 +185,7 @@ function renderNote(): void {
       <h2 class="note-title">${esc(n.title)}</h2>
       <div class="note-meta">${n.tags.map((t) => `<span class="chip">#${esc(t)}</span>`).join('')}${n.tags.length ? '<span class="sep">·</span>' : ''}<span>${n.words} words</span><span class="sep">·</span><span title="${new Date(n.mtime).toLocaleString()}">edited ${relativeTime(n.mtime)}</span>${state.noteUpdatedAt ? `<span class="sep">·</span><span style="color:var(--success)">updated live</span>` : ''}
         ${linkedHere.length ? `<span class="sep">·</span><button class="chip linked" data-act="tab" data-arg="linked">${icons.link} ${linkedHere.length} on canvas</button>` : ''}</div>
-      <div class="note-body"><div class="md">${renderMarkdown(stripLeadingTitle(n.body, n.title), { resolves }) || '<p style="color:var(--text-3)">Empty note.</p>'}</div></div>
+      <div class="note-body"><div class="md">${renderMarkdown(stripLeadingTitle(n.body, n.title), { resolves, resolveImage }) || '<p style="color:var(--text-3)">Empty note.</p>'}</div></div>
       ${n.outlinks.length || n.backlinks.length ? `<div class="links">
         ${n.outlinks.length ? `<h5>Links to</h5><div class="linkrow">${n.outlinks.map((l) => `<button data-act="open" data-arg="${esc(l.path)}">${esc(l.title)}</button>`).join('')}</div>` : ''}
         ${n.backlinks.length ? `<h5>Linked from</h5><div class="linkrow">${n.backlinks.map((l) => `<button data-act="open" data-arg="${esc(l.path)}">${esc(l.title)}</button>`).join('')}</div>` : ''}
@@ -401,7 +402,8 @@ async function pull(nodeId: string): Promise<void> {
   if (!link) return toast('Layer is not linked', 'error');
   await withBusy('pull', async () => {
     const note = await bridge.note(link.path);
-    send({ type: 'pull', nodeId, note, vaultName: state.settings.vaultName });
+    const images = link.kind === 'spec-card' ? await collectImages(note) : [];
+    send({ type: 'pull', nodeId, note, vaultName: state.settings.vaultName, images });
   });
 }
 
@@ -455,6 +457,17 @@ function downloadSpec(note: Note): void {
   toast(`Saved ${a.download} — drop it on the canvas to make a Figma Spec`, 'success', 5000);
 }
 
+/** Decode the images a note embeds so the sandbox can place them in the card. Failures just skip the image. */
+async function collectImages(note: Note): Promise<CardImage[]> {
+  const targets = imageTargets(note.body);
+  const out: CardImage[] = [];
+  await Promise.all(targets.map(async (target) => {
+    try { const img = await bridge.imageBytes(target); if (img) out.push({ target, ...img }); }
+    catch { /* unreadable or unsupported image — the card shows a caption instead */ }
+  }));
+  return out;
+}
+
 async function refreshHashes(): Promise<void> {
   if (!state.online) return;
   const paths = state.linked.map((l) => l.link.path);
@@ -503,7 +516,7 @@ app.addEventListener('click', (e) => {
     case 'open-obsidian': send({ type: 'open-url', url: obsidianUrl(state.settings.vaultName, arg) }); break;
     case 'search-obsidian': send({ type: 'open-url', url: obsidianSearchUrl(state.settings.vaultName, state.query.trim()) }); break;
     case 'download-spec': if (state.note) downloadSpec(state.note); break;
-    case 'insert': if (state.note) void withBusy('insert', async () => { send({ type: 'insert-spec-card', note: state.note!, vaultName: state.settings.vaultName, width: state.settings.cardWidth }); }); break;
+    case 'insert': if (state.note) void withBusy('insert', async () => { const note = state.note!; const images = await collectImages(note); send({ type: 'insert-spec-card', note, vaultName: state.settings.vaultName, width: state.settings.cardWidth, images }); }); break;
     case 'link': if (state.note) void withBusy('link', async () => { send({ type: 'link-selection', note: state.note! }); }); break;
     case 'pick': state.pickFor = { nodeId: arg, name: state.selection.node?.name ?? 'layer' }; state.tab = 'search'; state.note = undefined; render(); input.focus(); break;
     case 'cancel-pick': state.pickFor = undefined; render(); break;

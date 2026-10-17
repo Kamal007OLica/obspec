@@ -155,7 +155,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .md .wiki { color: var(--accent); border-bottom: 1px dotted var(--accent); cursor: pointer; }
 .md .wiki.broken { color: var(--text-3); border-bottom-style: dashed; }
 .md .tag { color: var(--accent); }
-.md img { max-width: 100%; border-radius: 6px; }
+.md img { max-width: 100%; height: auto; border-radius: 6px; }
+.md img.embed { display: block; margin: 8px 0; border: 1px solid var(--border); background: var(--bg-2); }
 .md .hl { background: var(--mark); }
 
 .links { padding: 0 12px 12px; }

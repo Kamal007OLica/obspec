@@ -104,7 +104,7 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
       case 'get-linked': return pushLinked();
 
       case 'insert-spec-card': {
-        const card = await buildSpecCard(msg.note, { vaultName: msg.vaultName, width: msg.width });
+        const card = await buildSpecCard(msg.note, { vaultName: msg.vaultName, width: msg.width, images: msg.images });
         writeLink(card, { v: 1, path: msg.note.path, noteHash: msg.note.hash, noteMtime: msg.note.mtime, kind: 'spec-card', linkedAt: Date.now(), syncedAt: Date.now() });
         figma.currentPage.selection = [card];
         figma.viewport.scrollAndZoomIntoView([card]);
@@ -134,7 +134,7 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
         if (!n || n.removed) throw new Error('Layer no longer exists');
         const link = readLink(n);
         if (!link) throw new Error('Layer is not linked');
-        if (link.kind === 'spec-card' && n.type === 'FRAME') await updateSpecCard(n, msg.note, { vaultName: msg.vaultName });
+        if (link.kind === 'spec-card' && n.type === 'FRAME') await updateSpecCard(n, msg.note, { vaultName: msg.vaultName, images: msg.images });
         writeLink(n, { ...link, noteHash: msg.note.hash, noteMtime: msg.note.mtime, designHash: designHashOf(n as SceneNode), syncedAt: Date.now() });
         figma.notify(`Pulled “${msg.note.title}”`);
         post({ type: 'pulled', nodeId: n.id });

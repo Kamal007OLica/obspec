@@ -46,6 +46,31 @@ export class BridgeClient {
     return new Map(unique.map((p) => [p, r.hashes[p] ?? undefined]));
   }
 
+  /** URL for an image embedded in a note; the bridge resolves bare file names like Obsidian does. */
+  fileUrl(target: string): string {
+    return `${this.baseUrl}/file?path=${encodeURIComponent(target)}${this.token ? `&token=${encodeURIComponent(this.token)}` : ''}`;
+  }
+
+  /** Fetch an embedded image and re-encode it as PNG no larger than `maxSide` px (Figma caps images at 4096). */
+  async imageBytes(target: string, maxSide = 2048): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+    const res = await fetch(this.fileUrl(target), { headers: this.token ? { Authorization: `Bearer ${this.token}` } : {} });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error(`Can’t decode ${target}`)); i.src = objectUrl; });
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if (!w || !h) return null;
+      const scale = Math.min(1, maxSide / Math.max(w, h));
+      const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, cw, ch);
+      const png = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
+      if (!png) return null;
+      return { bytes: new Uint8Array(await png.arrayBuffer()), width: cw, height: ch };
+    } finally { URL.revokeObjectURL(objectUrl); }
+  }
+
   // ── vault selection (onboarding) ──
   vaults(): Promise<VaultsResponse> { return this.req('GET', '/vaults'); }
   setVault(path: string): Promise<SetVaultResponse> { return this.req('POST', '/vault', { path }); }

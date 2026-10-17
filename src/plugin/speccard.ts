@@ -3,9 +3,9 @@
  * Spec card: a note rendered onto the canvas as an auto-layout frame.
  * Rebuilt in place on "pull" so the node id (and its link) survive.
  */
-import { obsidianUrl, type CardStatus, type Note } from '../shared/protocol';
+import { obsidianUrl, type CardImage, type CardStatus, type Note } from '../shared/protocol';
 
-export interface CardOptions { vaultName: string; width?: number }
+export interface CardOptions { vaultName: string; width?: number; images?: CardImage[] }
 
 const FONT_REG: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_MED: FontName = { family: 'Inter', style: 'Medium' };
@@ -80,11 +80,30 @@ async function fillCard(card: FrameNode, note: Note, opts: CardOptions): Promise
 
   // Body (markdown → lightweight blocks)
   const blocks = toBlocks(note.body, 60, note.title);
+  const images = new Map<string, CardImage>();
+  for (const im of opts.images ?? []) { images.set(imageKey(im.target), im); }
+  const innerWidth = width - 48;
   const body = figma.createFrame(); body.name = 'body'; body.layoutMode = 'VERTICAL'; body.itemSpacing = 8; body.fills = [];
   body.primaryAxisSizingMode = 'AUTO'; body.counterAxisSizingMode = 'AUTO';
   card.appendChild(body); fill(body);
   for (const b of blocks) {
-    if (b.kind === 'h') text(body, 'heading', b.text, { font: FONT_SEMI, size: b.level <= 2 ? 14 : 13, color: C.text, lineHeight: 20, fill: true });
+    if (b.kind === 'image') {
+      const im = images.get(imageKey(b.target));
+      if (im) {
+        try {
+          const handle = figma.createImage(im.bytes);
+          const rect = figma.createRectangle();
+          rect.name = `image · ${b.target}`;
+          rect.resize(innerWidth, Math.max(1, Math.round((innerWidth * im.height) / im.width)));
+          rect.cornerRadius = 8;
+          rect.fills = [{ type: 'IMAGE', imageHash: handle.hash, scaleMode: 'FILL' }];
+          body.appendChild(rect); fill(rect);
+          continue;
+        } catch { /* fall through to the caption */ }
+      }
+      text(body, 'image-caption', `[image: ${b.alt || b.target}]`, { font: FONT_REG, size: 11, color: C.muted, lineHeight: 16, fill: true });
+    }
+    else if (b.kind === 'h') text(body, 'heading', b.text, { font: FONT_SEMI, size: b.level <= 2 ? 14 : 13, color: C.text, lineHeight: 20, fill: true });
     else if (b.kind === 'code') {
       const box = figma.createFrame(); box.name = 'code'; box.layoutMode = 'VERTICAL'; box.fills = [solid(C.code)]; box.cornerRadius = 8;
       box.paddingTop = box.paddingBottom = 10; box.paddingLeft = box.paddingRight = 12; box.primaryAxisSizingMode = 'AUTO'; box.counterAxisSizingMode = 'AUTO';
@@ -186,7 +205,7 @@ function fill(node: SceneNode): void {
   try { (node as FrameNode).layoutSizingHorizontal = 'FILL'; } catch { (node as FrameNode).layoutAlign = 'STRETCH'; }
 }
 
-type Block = { kind: 'h'; level: number; text: string } | { kind: 'p' | 'li' | 'quote' | 'code'; text: string };
+export type Block = { kind: 'h'; level: number; text: string } | { kind: 'p' | 'li' | 'quote' | 'code'; text: string } | { kind: 'image'; target: string; alt: string };
 
 /** Markdown → blocks. Deliberately lossy: the card is a readable mirror, not a renderer. */
 export function toBlocks(md: string, maxBlocks = 60, dropTitle?: string): Block[] {
@@ -210,6 +229,11 @@ export function toBlocks(md: string, maxBlocks = 60, dropTitle?: string): Block[
     }
     const h = /^(#{1,6})\s+(.+)$/.exec(l);
     if (h) { flush(); out.push({ kind: 'h', level: h[1].length, text: inline(h[2]) }); continue; }
+    // A line that is only an image embed becomes an image block (inline embeds stay captions).
+    const wiki = /^\s*!\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]\s*$/.exec(l);
+    if (wiki && isImageName(wiki[1])) { flush(); out.push({ kind: 'image', target: wiki[1].trim(), alt: wiki[2]?.replace(/^\d+(x\d+)?$/, '') ?? '' }); continue; }
+    const mdimg = /^\s*!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)\s*$/.exec(l);
+    if (mdimg && !/^(https?:|data:)/i.test(mdimg[2]) && isImageName(mdimg[2])) { flush(); out.push({ kind: 'image', target: mdimg[2], alt: mdimg[1] }); continue; }
     const li = /^\s*(?:[-*+]|\d+\.)\s+(?:\[([ xX])\]\s+)?(.+)$/.exec(l);
     if (li) { flush(); const box = li[1] === undefined ? '•' : li[1] === ' ' ? '☐' : '☑'; out.push({ kind: 'li', text: `${box}  ${inline(li[2])}` }); continue; }
     const q = /^>\s?(.*)$/.exec(l);
@@ -224,6 +248,9 @@ export function toBlocks(md: string, maxBlocks = 60, dropTitle?: string): Block[
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+const isImageName = (name: string) => /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(name.trim());
+/** Images are matched by file name, the way Obsidian resolves embeds. */
+export const imageKey = (target: string) => (target.split('/').pop() ?? target).trim().toLowerCase();
 
 function inline(s: string): string {
   return s
