@@ -115,7 +115,8 @@ function renderSearch(): void {
   if (!state.results.length) { box.innerHTML = emptyState(icons.empty, `Nothing for “${esc(state.query)}”`, 'Try fewer words, or filter with tag: and path:.'); return; }
   const terms = state.query.toLowerCase().match(/"([^"]+)"|(\S+)/g)?.map((t) => t.replace(/"/g, '')) ?? [];
   box.innerHTML = `<div class="section-label">Results<span class="count">${state.total} note${state.total === 1 ? '' : 's'} · ${state.tookMs} ms</span><button class="link-btn" data-act="search-obsidian" title="Run this search in Obsidian so the matches light up in your vault">${icons.external} in Obsidian</button></div>
-    <ul class="results ${view}">${state.results.map((r, i) => resultRow(r, i, terms)).join('')}</ul>`;
+    <ul class="results ${view}">${state.results.map((r, i) => resultRow(r, i, terms)).join('')}</ul>
+    <p class="tip">${icons.select} Drag any result onto the canvas to drop it there as a spec card.</p>`;
   box.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -127,7 +128,7 @@ function resultRow(r: SearchResult, i: number, terms: string[]): string {
   const view = currentView();
   const thumb = r.thumbnail && state.online ? bridge.fileUrl(r.thumbnail) : undefined;
   if (view === 'compact') {
-    return `<li><button class="result compact" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
+    return `<li><button class="result compact" role="option" draggable="true" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
       <span class="r-title">${highlightTerms(r.title, terms)}</span>
       <span class="r-path">${esc(r.folder || '/')}</span>
       ${linkedCount ? `<span class="chip linked">${icons.link} ${linkedCount}</span>` : ''}
@@ -135,7 +136,7 @@ function resultRow(r: SearchResult, i: number, terms: string[]): string {
     </button></li>`;
   }
   if (view === 'cards') {
-    return `<li><button class="result rcard" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
+    return `<li><button class="result rcard" role="option" draggable="true" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
       <div class="rc-media">${thumb ? `<img src="${esc(thumb)}" alt="" loading="lazy" decoding="async">` : `<div class="rc-text">${snip ? highlight(snip.text, snip.ranges) : esc(r.folder || '/')}</div>`}${linkedCount ? `<span class="chip linked rc-badge">${icons.link} ${linkedCount}</span>` : ''}</div>
       <div class="rc-body">
         <div class="r-title">${highlightTerms(r.title, terms)}</div>
@@ -145,7 +146,7 @@ function resultRow(r: SearchResult, i: number, terms: string[]): string {
       </div>
     </button></li>`;
   }
-  return `<li><button class="result" role="option" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
+  return `<li><button class="result" role="option" draggable="true" aria-selected="${i === state.active}" data-act="open" data-arg="${esc(r.path)}" data-i="${i}">
     <div class="r-main">
       <div class="r-head"><span class="r-title">${highlightTerms(r.title, terms)}</span><span class="r-path">${esc(r.folder || '/')}</span></div>
       ${snip ? `<div class="r-snip">${snip.ranges.length ? `<span class="ln">L${snip.line}</span>` : ''}${highlight(snip.text, snip.ranges)}</div>` : ''}
@@ -629,6 +630,44 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.tab = 'search'; state.note = undefined; render(); input.focus(); input.select(); }
 });
 
+// ───────────────────────────── Drag a result onto the canvas ─────────────
+// HTML5 drag inside the plugin; when released over Figma, the UI posts `pluginDrop` and the
+// sandbox gets a `drop` event with canvas coordinates (see code.ts). The note and its images are
+// fetched while the drag is in flight so the card appears the moment it lands.
+let drag: { path: string; title: string; data: Promise<{ note: Note; images: CardImage[] }> } | null = null;
+const ghost = document.createElement('div'); ghost.className = 'drag-ghost'; document.body.appendChild(ghost);
+app.addEventListener('dragstart', (e) => {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('.result[data-arg]');
+  if (!el || !e.dataTransfer) return;
+  const path = el.dataset.arg!;
+  const title = el.querySelector('.r-title')?.textContent?.trim() ?? titleOf(path);
+  drag = { path, title, data: bridge.note(path).then(async (note) => ({ note, images: await collectImages(note) })) };
+  drag.data.catch(() => {});
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', title);
+  ghost.innerHTML = `${icons.card}<span>${esc(title)}</span>`;
+  e.dataTransfer.setDragImage(ghost, 16, 16);
+  el.classList.add('dragging');
+});
+app.addEventListener('dragend', (e) => {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('.result');
+  el?.classList.remove('dragging');
+  if (!drag) return;
+  const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight;
+  // Figma's own check (`e.view.length === 0` means "released inside the plugin window") plus a coordinate check.
+  if ((e.view && (e.view as Window).length === 0) && !outside) { drag = null; return; }
+  parent.postMessage({ pluginDrop: { clientX: e.clientX, clientY: e.clientY, items: [{ type: 'text/plain', data: drag.title }], dropMetadata: { path: drag.path } } }, '*');
+});
+function titleOf(path: string): string { return path.split('/').pop()!.replace(/\.md$/, ''); }
+async function completeDrop(m: { path: string; x: number; y: number; parentId?: string }): Promise<void> {
+  const pending = drag && drag.path === m.path ? drag.data : bridge.note(m.path).then(async (note) => ({ note, images: await collectImages(note) }));
+  drag = null;
+  await withBusy('insert', async () => {
+    const { note, images } = await pending;
+    send({ type: 'insert-spec-card', note, vaultName: state.settings.vaultName, width: state.settings.cardWidth, images, at: { x: m.x, y: m.y }, parentId: m.parentId });
+  });
+}
+
 // ───────────────────────────── Theme ─────────────────────────────────────
 // Figma sets `figma-dark` / `figma-light` on <html> (and flips it live). 'auto' follows that;
 // an override re-applies our class whenever Figma changes its mind.
@@ -704,6 +743,7 @@ window.addEventListener('message', (e) => {
       break;
     case 'linked': state.linked = m.nodes; void refreshHashes(); render(); break;
     case 'snapshot': void completePush(m.snapshot); break;
+    case 'drop': void completeDrop(m); break;
     case 'linked-ok': toast('Linked', 'success'); if (state.note && !state.pickFor) { state.tab = 'selection'; state.note = undefined; render(); } break;
     case 'pulled': toast('Pulled latest note', 'success'); sentCardStatus.set(m.nodeId, 'in-sync'); break;
     case 'spec-card-inserted': sentCardStatus.set(m.nodeId, 'in-sync'); toast('Spec card inserted', 'success'); break;

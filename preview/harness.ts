@@ -80,7 +80,20 @@ function select(ids: string[], scroll = true): void {
   if (scroll) document.getElementById(`node-${ids[0]}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
+/** Figma turns a `pluginDrop` message into a canvas `drop` event; the mock does the same with stage coordinates. */
+function handlePluginDrop(pd: { clientX: number; clientY: number; dropMetadata?: { path?: string } }): void {
+  const path = pd.dropMetadata?.path; if (!path) return;
+  const r = iframe.getBoundingClientRect();
+  const pageX = r.left + pd.clientX, pageY = r.top + pd.clientY;
+  const stage = document.getElementById('stage')!.getBoundingClientRect();
+  if (pageX < stage.left || pageX > stage.right || pageY < stage.top || pageY > stage.bottom) { log(`drop outside the canvas — ignored`, 'sandbox'); return; }
+  const x = Math.round(pageX - stage.left), y = Math.round(pageY - stage.top);
+  log(`figma.on('drop') at ${x},${y} → ${path}`, 'sandbox');
+  post({ type: 'drop', path, x, y });
+}
 window.addEventListener('message', (e) => {
+  const pd = e.data?.pluginDrop as { clientX: number; clientY: number; dropMetadata?: { path?: string } } | undefined;
+  if (pd) { handlePluginDrop(pd); return; }
   const m = e.data?.pluginMessage as UiToPlugin | undefined;
   if (!m) return;
   log(`ui → sandbox: ${m.type}`, 'ui');
@@ -96,7 +109,7 @@ window.addEventListener('message', (e) => {
         const n: MockNode = { id, pageId: currentPageId, type: 'FRAME', name: `Spec · ${m.note.title}`, width: m.width, height: 520, texts: [m.note.title], children: ['eyebrow', 'title', 'body', 'footer'], fills: ['#FFFFFF'], pluginData: {}, kind: 'spec-card', note: m.note, status: 'in-sync' };
         page().nodes.push(n);
         writeLink(n, { v: 1, path: m.note.path, noteHash: m.note.hash, noteMtime: m.note.mtime, kind: 'spec-card', linkedAt: Date.now(), syncedAt: Date.now() });
-        select([id]); post({ type: 'spec-card-inserted', nodeId: id }); pushLinked(); notify(`Inserted “${m.note.title}”${m.images?.length ? ` with ${m.images.length} image(s), ${m.images.map((i) => `${i.width}×${i.height}`).join(', ')}` : ''}`); break;
+        select([id]); post({ type: 'spec-card-inserted', nodeId: id }); pushLinked(); notify(`Inserted “${m.note.title}”${m.at ? ` at ${m.at.x},${m.at.y}` : ''}${m.images?.length ? ` with ${m.images.length} image(s), ${m.images.map((i) => `${i.width}×${i.height}`).join(', ')}` : ''}`); break;
       }
       case 'link-selection': {
         if (selection.length !== 1) throw new Error('Select exactly one layer to link');
@@ -284,6 +297,18 @@ const scenarios: Scenario[] = [
     await waitCanvas(() => !!document.querySelector('.node.spec img.img'));
     await sleep(600);
   } },
+  { title: 'Drag a result onto the canvas', detail: 'Search “roadmap”, then drag the result out of the plugin and release it over the canvas. The card appears where it landed.', run: async () => {
+    await backToSearch();
+    await typeInto('#q', 'roadmap');
+    await waitFor('.result');
+    await sleep(500);
+    const before = pages.flatMap((p) => p.nodes).filter((n) => n.kind === 'spec-card').length;
+    // Headless Chrome can't perform a real cross-frame drag, so the emulation injects the message the UI would post.
+    const r = iframe.getBoundingClientRect(); const stage = document.getElementById('stage')!.getBoundingClientRect();
+    handlePluginDrop({ clientX: stage.left + 200 - r.left, clientY: stage.top + 520 - r.top, dropMetadata: { path: 'Product/Roadmap Q4.md' } });
+    await waitCanvas(() => pages.flatMap((p) => p.nodes).filter((n) => n.kind === 'spec-card').length > before);
+    await sleep(600);
+  } },
   { title: 'Link an existing layer to a note', detail: 'Select “Checkout / Payment step” → Selection tab → “Link to a note…” → pick “Payment Methods”.', run: async () => {
     select(['1:2']);
     await tab('selection');
@@ -323,7 +348,7 @@ const scenarios: Scenario[] = [
   } },
   { title: 'Design changes → status flips → re-send', detail: 'The button label is changed on the canvas. Obspec shows “Design changed”; sending again updates the note’s Design section.', run: async () => {
     let n = selection[0] ? findNode(selection[0]) : undefined;
-    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[5].run(); n = findNode('2:2')!; }
+    if (!n || readLink(n)?.kind !== 'linked' || n.kind === 'spec-card') { await scenarios[6].run(); n = findNode('2:2')!; }
     await tab('selection');
     n.texts = n.texts.map((t) => (t === 'Continue' ? 'Pay now' : t === 'Continue to payment' ? 'Pay now' : t));
     if (n.preview) n.preview = n.preview.map(([k, t]) => [k, t === 'Continue' || t === 'Continue to payment' ? 'Pay now' : t]);

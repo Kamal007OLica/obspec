@@ -121,6 +121,13 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .result .r-main { flex: 1 1 auto; min-width: 0; }
 .result .r-thumb { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-2); margin-top: 1px; }
 .result:hover { background: var(--bg-hover); }
+.result { cursor: grab; }
+.result:active { cursor: grabbing; }
+.result.dragging { opacity: .5; }
+.tip { margin: 2px 14px 12px; color: var(--text-3); font-size: 10.5px; display: flex; gap: 6px; align-items: center; }
+.tip svg { width: 12px; height: 12px; flex: none; }
+.drag-ghost { position: fixed; top: -200px; left: -200px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); box-shadow: var(--shadow); font: 600 12px var(--font); white-space: nowrap; pointer-events: none; }
+.drag-ghost svg { width: 14px; height: 14px; color: var(--accent); }
 .result[aria-selected="true"] { background: var(--bg-selected); border-color: transparent; }
 .result .r-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .result .r-title { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

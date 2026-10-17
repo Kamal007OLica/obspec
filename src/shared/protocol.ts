@@ -279,7 +279,7 @@ export type UiToPlugin =
   | { type: 'save-settings'; settings: Settings }
   | { type: 'get-selection' }
   | { type: 'get-linked' }
-  | { type: 'insert-spec-card'; note: Note; vaultName: string; width: number; images?: CardImage[] }
+  | { type: 'insert-spec-card'; note: Note; vaultName: string; width: number; images?: CardImage[]; /** canvas position from a drag-and-drop, else viewport centre */ at?: { x: number; y: number }; /** frame/section under the cursor to drop into */ parentId?: string }
   | { type: 'link-selection'; note: Note }
   | { type: 'unlink'; nodeId: string }
   | { type: 'pull'; nodeId: string; note: Note; vaultName: string; images?: CardImage[] }
@@ -299,6 +299,8 @@ export type PluginToUi =
   | { type: 'linked'; nodes: LinkedNodeSummary[] }
   | { type: 'snapshot'; snapshot: DesignSnapshot }
   | { type: 'spec-card-inserted'; nodeId: string }
+  /** A result dragged from the UI was dropped on the canvas; the UI answers with insert-spec-card. */
+  | { type: 'drop'; path: string; x: number; y: number; parentId?: string }
   | { type: 'linked-ok'; nodeId: string }
   | { type: 'pulled'; nodeId: string }
   | { type: 'error'; message: string };

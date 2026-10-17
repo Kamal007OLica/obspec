@@ -88,6 +88,35 @@ void figma.loadAllPagesAsync().then(() => {
   });
 }).catch((err) => console.warn('[obspec] documentchange unavailable:', err));
 
+// ───────────────────────────── Drag & drop from the UI ────────────────────
+// The UI posts a `pluginDrop` message when a result is released over the canvas; Figma turns
+// that into this event with canvas coordinates and the node under the cursor.
+figma.on('drop', (event) => {
+  const meta = (event.dropMetadata ?? {}) as { path?: string };
+  if (!meta.path) return false;
+  const n = event.node;
+  const canHold = n && n.type !== 'PAGE' && n.type !== 'DOCUMENT' && (n.type === 'FRAME' || n.type === 'SECTION' || n.type === 'GROUP' || n.type === 'COMPONENT') && !('locked' in n && n.locked);
+  post({ type: 'drop', path: meta.path, x: event.absoluteX, y: event.absoluteY, parentId: canHold ? n.id : undefined });
+  return false;
+});
+
+/** Put a freshly built card at an absolute canvas point, inside `parentId` when it can hold children. */
+async function placeAt(card: FrameNode, at: { x: number; y: number }, parentId?: string): Promise<void> {
+  const parent = parentId ? await figma.getNodeByIdAsync(parentId) : null;
+  if (parent && !parent.removed && 'appendChild' in parent && parent.type !== 'PAGE' && parent.type !== 'DOCUMENT' && parent.type !== 'INSTANCE') {
+    const p = parent as FrameNode;
+    p.appendChild(card);
+    if (!('layoutMode' in p) || p.layoutMode === 'NONE') {
+      const t = p.absoluteTransform;
+      card.x = Math.round(at.x - t[0][2]);
+      card.y = Math.round(at.y - t[1][2]);
+    }
+    return;
+  }
+  card.x = Math.round(at.x);
+  card.y = Math.round(at.y);
+}
+
 // ───────────────────────────── Message loop ───────────────────────────────
 figma.ui.onmessage = async (msg: UiToPlugin) => {
   try {
@@ -110,6 +139,7 @@ figma.ui.onmessage = async (msg: UiToPlugin) => {
 
       case 'insert-spec-card': {
         const card = await buildSpecCard(msg.note, { vaultName: msg.vaultName, width: msg.width, images: msg.images });
+        if (msg.at) await placeAt(card, msg.at, msg.parentId);
         writeLink(card, { v: 1, path: msg.note.path, noteHash: msg.note.hash, noteMtime: msg.note.mtime, kind: 'spec-card', linkedAt: Date.now(), syncedAt: Date.now() });
         figma.currentPage.selection = [card];
         figma.viewport.scrollAndZoomIntoView([card]);
