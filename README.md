@@ -72,7 +72,7 @@ The plugin talks to `http://localhost:27123`, the only address Figma allows (see
 npm run preview      # → http://127.0.0.1:5177
 ```
 
-Runs the **real plugin UI** and the **real bridge** (against a scratch copy of `examples/vault`) with a mock Figma document. The right rail has five one-click use-case emulations that drive the UI exactly like a user would:
+Runs the **real plugin UI** and the **real bridge** on port 27124 (against a scratch copy of `examples/vault`, so it never collides with your real bridge on 27123) with a mock Figma document. The right rail has five one-click use-case emulations that drive the UI exactly like a user would:
 
 1. Search the vault → open a note → insert a spec card
 2. Select a layer → link it to a note

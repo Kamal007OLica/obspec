@@ -34,12 +34,12 @@ await shot('00-idle.png');
 
 // Onboarding stills: step 1 (bridge offline) and step 2 (pick a vault). The demo vault is restored afterwards.
 const demoVault = path.resolve('preview/.work/Obspec Demo Vault');
-const setDemoVault = () => evaluate(`fetch('http://127.0.0.1:27123/vault', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: ${JSON.stringify(demoVault)} }) }).then(r => r.ok)`);
+const setDemoVault = () => evaluate(`fetch('http://127.0.0.1:27124/vault', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: ${JSON.stringify(demoVault)} }) }).then(r => r.ok)`);
 if (!(await setDemoVault())) throw new Error('could not select the demo vault — is the preview server running?');
 await evaluate(`localStorage.setItem('obspec:settings', JSON.stringify({ bridgeUrl: 'http://127.0.0.1:1' })); location.reload(); true`);
 await sleep(2500);
 await shot('00a-onboarding-step1-offline.png');
-await evaluate(`localStorage.removeItem('obspec:settings'); fetch('http://127.0.0.1:27123/vault', { method: 'DELETE' }).then(() => location.reload()); true`);
+await evaluate(`localStorage.removeItem('obspec:settings'); fetch('http://127.0.0.1:27124/vault', { method: 'DELETE' }).then(() => location.reload()); true`);
 await sleep(3000);
 await shot('00b-onboarding-step2-pick-vault.png');
 await setDemoVault();

@@ -8,7 +8,8 @@ import { startBridge } from '../bridge/dist/server.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PREVIEW_PORT ?? 5177);
-const BRIDGE_PORT = Number(process.env.OBSPEC_PORT ?? 27123);
+// The preview runs its own bridge on 27124 so it never collides with a real bridge (and the live Figma plugin) on 27123.
+const BRIDGE_PORT = Number(process.env.OBSPEC_PORT ?? 27124);
 const SRC_VAULT = path.join(root, 'examples/vault');
 const WORK_VAULT = path.join(root, 'preview/.work/Obspec Demo Vault');
 

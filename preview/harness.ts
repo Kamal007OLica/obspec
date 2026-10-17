@@ -5,7 +5,7 @@
 import { DEFAULT_SETTINGS, fnv1a, type CardStatus, type DesignSnapshot, type LinkedNodeSummary, type Note, type NoteLinkRecord, type PluginToUi, type SelectionSummary, type Settings, type UiToPlugin, type VaultEvent } from '../src/shared/protocol';
 import { toBlocks } from '../src/plugin/speccard';
 
-const BRIDGE = 'http://127.0.0.1:27123';
+const BRIDGE = 'http://127.0.0.1:27124';
 const FILE_KEY = 'PREVIEWfilekey0001';
 const FILE_NAME = 'Checkout — Oct 2026';
 
@@ -68,7 +68,7 @@ function snapshot(n: MockNode): DesignSnapshot {
 // ───────────────────────────── Sandbox ⇄ UI ──────────────────────────────
 const iframe = document.getElementById('plugin') as HTMLIFrameElement;
 const post = (m: PluginToUi) => iframe.contentWindow?.postMessage({ pluginMessage: m }, '*');
-const loadSettings = (): Settings => { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('obspec:settings') ?? '{}') }; } catch { return { ...DEFAULT_SETTINGS }; } };
+const loadSettings = (): Settings => { try { return { ...DEFAULT_SETTINGS, bridgeUrl: BRIDGE, ...JSON.parse(localStorage.getItem('obspec:settings') ?? '{}') }; } catch { return { ...DEFAULT_SETTINGS, bridgeUrl: BRIDGE }; } };
 const pushSelection = () => post({ type: 'selection', selection: selectionSummary() });
 const pushLinked = () => post({ type: 'linked', nodes: linkedNodes() });
 function select(ids: string[], scroll = true): void {
